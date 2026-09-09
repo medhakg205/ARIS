@@ -1,0 +1,12 @@
+node_modules/
+aris_desktop/node_modules/
+dist/
+build/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.exe
+*.o
+*.obj
+.vscode/
+.idea/
