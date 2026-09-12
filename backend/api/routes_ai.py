@@ -1,5 +1,5 @@
 """
-ARIS AI Interface REST API Routes (Contract for Engineer 3).
+ARIS AI Interface REST API Routes (Engineer 3 Modular AI Integration).
 Endpoints:
 - POST /api/ai/analyze
 - POST /api/ai/generate-candidate
@@ -13,13 +13,14 @@ from backend.api.dependencies import (
     get_db,
     get_static_analyzer,
     get_baseline_engine,
-    get_firmware_mgr
 )
 from backend.firmware.board_profiles import get_board_profile
 from backend.correlation.correlation_engine import CorrelationEngine
-from backend.analysis.ai_interface import AIInterface, OptimizationCandidate, AIContextInput
+from backend.analysis.ai_interface import OptimizationCandidate
 from backend.database.models import OptimizationRecord
-from backend.telemetry.telemetry_schema import ArisException
+from backend.ai.context_builder import ContextBuilder
+from backend.ai.candidate_generator import CandidateGenerator
+from backend.ai.provider import list_available_providers
 
 router = APIRouter(tags=["AI"])
 
@@ -37,6 +38,13 @@ class GenerateCandidateRequest(BaseModel):
     source_code: str
     board_id: str = Field(default="arduino_uno")
     run_id: Optional[str] = None
+    provider: Optional[str] = Field(default="auto")
+
+
+@router.get("/api/ai/providers")
+def get_providers() -> Dict[str, Any]:
+    """Returns available AI providers and their status."""
+    return {"providers": list_available_providers()}
 
 
 @router.post("/api/ai/analyze")
@@ -80,8 +88,8 @@ def ai_analyze(req: AIAnalyzeRequest) -> Dict[str, Any]:
                 correlated = CorrelationEngine.correlate(static_result.findings, base)
                 correlations = [f.model_dump() for f in correlated]
 
-    context = AIInterface.build_context(
-        board_profile=profile.to_dict(),
+    context = ContextBuilder.build(
+        board_id=req.board_id,
         firmware_source=source,
         static_findings=[f.model_dump() for f in static_result.findings],
         runtime_metrics=runtime_metrics,
@@ -96,16 +104,46 @@ def ai_analyze(req: AIAnalyzeRequest) -> Dict[str, Any]:
 def generate_candidate(req: GenerateCandidateRequest) -> Dict[str, Any]:
     """
     Generates and validates an OptimizationCandidate conforming strictly
-    to the canonical schema. Stores candidate in database.
+    to the canonical schema using the modular AI Engine.
+    Stores candidate in persistent database.
     """
-    candidate: OptimizationCandidate = AIInterface.generate_candidate_for_finding(
+    # Assemble context for reasoning
+    db = get_db()
+    profile = get_board_profile(req.board_id)
+    static_analyzer = get_static_analyzer()
+    static_result = static_analyzer.analyze_source(req.source_code, board_id=req.board_id)
+
+    runtime_metrics = {}
+    baseline_metrics = {}
+    correlations = []
+
+    if req.run_id:
+        run = db.get_run(req.run_id)
+        if run and run.baseline_id:
+            base = db.get_baseline(run.baseline_id)
+            if base:
+                baseline_metrics = {k: v.model_dump() for k, v in base.metrics.items()}
+                runtime_metrics = {k: v.mean for k, v in base.metrics.items()}
+                correlated = CorrelationEngine.correlate(static_result.findings, base)
+                correlations = [f.model_dump() for f in correlated]
+
+    context = ContextBuilder.build(
+        board_id=req.board_id,
+        firmware_source=req.source_code,
+        static_findings=[f.model_dump() for f in static_result.findings],
+        runtime_metrics=runtime_metrics,
+        baseline_metrics=baseline_metrics,
+        runtime_static_correlations=correlations,
+        optimization_history=[]
+    )
+
+    candidate: OptimizationCandidate = CandidateGenerator.generate(
+        context=context,
         finding=req.finding,
-        source_code=req.source_code,
-        board_id=req.board_id
+        provider_name=req.provider
     )
 
     # Persist in database
-    db = get_db()
     record = OptimizationRecord(
         optimization_id=candidate.optimization_id,
         finding_id=candidate.finding_id,

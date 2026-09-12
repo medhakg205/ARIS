@@ -1,190 +1,290 @@
-export interface PinMapping {
-  pin_name: string;
-  pin_type: string;
-  port_register: string;
-  pin_bit: number;
-  timer_channel?: string | null;
-  interrupt_num?: number | null;
+// ============================================================
+// ARIS Canonical TypeScript Types
+// Adaptive Runtime Intelligence System for Embedded Devices
+// Engineer 3 — Canonical contracts matching backend schemas exactly
+// ============================================================
+
+// ---- Veracity Classifications ----
+export type MetricClassification = 'MEASURED' | 'ESTIMATED' | 'DERIVED' | 'PREDICTED';
+
+// ---- Canonical Metric Names ----
+export type CanonicalMetric =
+  | 'cpu_load'
+  | 'loop_time'
+  | 'loop_frequency'
+  | 'loop_jitter'
+  | 'sram_used'
+  | 'sram_free'
+  | 'stack_used'
+  | 'stack_high_water_mark'
+  | 'interrupt_count'
+  | 'interrupt_rate'
+  | 'gpio_activity'
+  | 'adc_activity'
+  | 'uart_activity'
+  | 'spi_activity'
+  | 'i2c_activity'
+  | 'timer_activity'
+  | 'reset_event'
+  | 'watchdog_event'
+  | 'runtime_fault'
+  | 'instrumentation_overhead';
+
+// ---- Canonical Error Codes ----
+export type ArisErrorCode =
+  | 'ARIS_SERIAL_DISCONNECTED'
+  | 'ARIS_BOARD_NOT_FOUND'
+  | 'ARIS_UNSUPPORTED_BOARD'
+  | 'ARIS_INVALID_FIRMWARE'
+  | 'ARIS_BUILD_FAILED'
+  | 'ARIS_FLASH_FAILED'
+  | 'ARIS_TELEMETRY_INVALID'
+  | 'ARIS_AI_UNAVAILABLE'
+  | 'ARIS_OPTIMIZATION_INVALID'
+  | 'ARIS_VALIDATION_FAILED'
+  | 'ARIS_BACKEND_UNAVAILABLE';
+
+export interface ArisError {
+  error_code: ArisErrorCode;
+  message: string;
+  details: Record<string, unknown>;
+  recoverable: boolean;
 }
 
-export interface HardwareProfile {
-  id: string;
-  name: string;
-  mcu_model: string;
+// ---- Canonical Telemetry Sample (v1.0 protocol) ----
+export interface TelemetrySample {
+  protocol_version: '1.0';
+  run_id: string;
+  board_id: string;
+  mcu: string;
+  timestamp_ms: number;
+  sequence: number;
+  metric: CanonicalMetric;
+  value: number;
+  unit: string;
+  classification: MetricClassification;
+  confidence: number;
+  is_demo?: boolean;
+}
+
+// ---- Board Profile ----
+export interface BoardProfile {
+  board_id: string;
+  display_name: string;
+  mcu: string;
   architecture: string;
-  core_frequency_hz: number;
+  clock_hz: number;
   flash_bytes: number;
   sram_bytes: number;
   eeprom_bytes: number;
-  operating_voltage: number;
-  active_power_ma: number;
-  sleep_power_ma: number;
-  hardware_uarts: number;
+  gpio_count: number;
   adc_channels: number;
-  adc_resolution_bits: number;
+  uart_count: number;
+  spi_available: boolean;
+  i2c_available: boolean;
   timer_count: number;
-  direct_port_registers: string[];
-  pin_count: number;
-  pins: Record<string, PinMapping>;
-  hardware_notes: string;
+  interrupt_capabilities: string[];
 }
 
-export interface VirtualPinState {
-  pin_name: string;
-  mode: string;
-  digital_value: number;
-  analog_value: number;
-  pwm_duty: number;
-  voltage: number;
-}
-
-export interface TelemetryFrame {
-  timestamp_ms: number;
-  board_id: string;
-  board_name: string;
-  cpu_utilization_pct: number;
-  cpu_compensated_pct: number;
-  free_sram_bytes: number;
-  used_sram_bytes: number;
-  stack_high_watermark_bytes: number;
-  loop_duration_us: number;
-  loop_frequency_hz: number;
-  jitter_us: number;
-  isr_frequency_hz: number;
-  adc_conversions_sec: number;
-  gpio_toggles_sec: number;
-  power_consumption_mw: number;
-  active_current_ma: number;
-  observer_overhead_pct: number;
-  raw_packet: string;
-  pin_states: Record<string, VirtualPinState>;
-}
-
-export interface CodeAntipattern {
-  id: string;
+// ---- Firmware ----
+export interface FirmwareRecord {
+  firmware_id: string;
   name: string;
-  severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'INFO';
-  line_number: number;
-  line_snippet: string;
-  description: string;
-  architectural_impact: string;
-  estimated_overhead_cycles: number;
-  estimated_sram_loss_bytes: number;
-  remediation_suggestion: string;
-  auto_fixable: boolean;
+  source_code?: string;
+  hex_content?: string;
+  elf_path?: string;
+  map_content?: string;
+  created_at: string;
 }
 
-export interface FunctionProfile {
-  name: string;
-  return_type: string;
-  parameters: string[];
-  start_line: number;
-  end_line: number;
-  line_count: number;
-  calls_blocking_delay: boolean;
-  calls_slow_gpio: boolean;
-  calls_float_math: boolean;
-  is_isr: boolean;
-}
+// ---- Run ----
+export type RunStatus =
+  | 'CREATED'
+  | 'BUILDING'
+  | 'FLASHING'
+  | 'RUNNING'
+  | 'COLLECTING'
+  | 'COMPLETED'
+  | 'FAILED'
+  | 'ROLLED_BACK';
 
-export interface StaticAnalysisReport {
+export interface RunRecord {
+  run_id: string;
   board_id: string;
-  board_name: string;
-  total_lines: number;
-  function_count: number;
-  functions: FunctionProfile[];
-  antipatterns: CodeAntipattern[];
-  estimated_flash_bytes: number;
-  estimated_sram_static_bytes: number;
-  estimated_sram_stack_bytes: number;
-  flash_utilization_pct: number;
-  sram_utilization_pct: number;
-  blocking_delay_count: number;
-  gpio_call_count: number;
-  float_op_count: number;
-  ram_string_count: number;
-  architectural_health_score: number;
+  firmware_id?: string;
+  instrumentation_mode: string;
+  start_time?: string;
+  end_time?: string;
+  status: RunStatus;
+  is_simulated: boolean;
+  is_demo: boolean;
+  baseline_id?: string;
 }
 
-export interface AIOptimizationRecommendation {
-  id: string;
-  category: string;
+// ---- Findings ----
+export type FindingSeverity = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'INFO';
+export type RuntimeCorrelation = 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH';
+
+export interface FindingRecord {
+  finding_id: string;
+  run_id?: string;
+  rule_id: string;
+  severity: FindingSeverity;
   title: string;
-  severity: string;
-  target_hardware_insight: string;
-  theoretical_mechanism: string;
-  estimated_gain: string;
-  code_before_snippet: string;
-  code_after_snippet: string;
-}
-
-export interface AIOptimizationResult {
-  board_id: string;
-  board_name: string;
-  original_code: string;
-  optimized_candidate_code: string;
-  executive_summary: string;
-  architectural_diagnostics: string[];
-  applied_transforms: string[];
-  recommendations: AIOptimizationRecommendation[];
-  theoretical_speedup_factor: number;
-  projected_sram_recovery_bytes: number;
-  projected_power_savings_pct: number;
-}
-
-export interface BenchmarkMetricDelta {
-  metric_name: string;
-  unit: string;
-  original_value: number;
-  optimized_value: number;
-  absolute_delta: number;
-  percentage_improvement: number;
-  is_positive_improvement: boolean;
-}
-
-export interface ClosedLoopVerificationReport {
-  board_id: string;
-  board_name: string;
-  verification_status: string;
-  summary: string;
-  metrics: BenchmarkMetricDelta[];
-  net_performance_score_before: number;
-  net_performance_score_after: number;
-  total_score_delta: number;
-}
-
-export interface MemorySection {
-  name: string;
-  target_memory: string;
-  start_address_hex: string;
-  size_bytes: number;
-  utilization_pct: number;
   description: string;
+  source_file: string;
+  source_line: number;
+  runtime_correlation: RuntimeCorrelation;
+  confidence: number;
+  evidence: Record<string, unknown>;
+  recommended_action: string;
 }
 
-export interface SymbolEntry {
-  name: string;
-  section: string;
-  size_bytes: number;
-  address_hex: string;
-  symbol_type: string;
+// ---- Optimization Candidates ----
+export type OptimizationStatus =
+  | 'PROPOSED'
+  | 'APPROVED'
+  | 'BUILDING'
+  | 'TESTING'
+  | 'VALIDATED'
+  | 'REJECTED'
+  | 'ROLLED_BACK'
+  | 'FAILED';
+
+export type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH';
+
+export interface OptimizationCandidate {
+  optimization_id: string;
+  finding_id: string;
+  run_id?: string;
+  title: string;
+  problem: string;
+  source_location: { file: string; line: number };
+  before_code: string;
+  after_code: string;
+  reason: string;
+  hardware_consideration: string;
+  expected_effect: Record<string, unknown>;
+  risk: RiskLevel;
+  confidence: number;
+  validation_required: boolean;
+  status: OptimizationStatus;
 }
 
-export interface FirmwareMemoryMap {
+// ---- Experiments ----
+export type ExperimentStatus = 'CREATED' | 'RUNNING' | 'COMPLETED' | 'VALIDATED' | 'FAILED';
+
+export interface ExperimentRecord {
+  experiment_id: string;
+  title: string;
   board_id: string;
-  board_name: string;
-  total_flash_bytes: number;
-  used_flash_bytes: number;
-  free_flash_bytes: number;
-  flash_pct: number;
-  total_sram_bytes: number;
-  data_section_bytes: number;
-  bss_section_bytes: number;
-  static_sram_bytes: number;
-  estimated_heap_stack_bytes: number;
-  free_sram_bytes: number;
-  sram_pct: number;
-  sections: MemorySection[];
-  top_symbols: SymbolEntry[];
-  disassembly_preview: Array<{ addr: string; opcode: string; mnemonic: string; operands: string; cycles: string }>;
+  baseline_run_id: string;
+  candidate_run_id?: string;
+  optimization_id: string;
+  status: ExperimentStatus;
+  validation_id?: string;
+  created_at: string;
+}
+
+// ---- Validation ----
+export type ValidationStatus =
+  | 'VALIDATED'
+  | 'PARTIALLY_VALIDATED'
+  | 'NO_SIGNIFICANT_CHANGE'
+  | 'REGRESSION'
+  | 'REJECTED'
+  | 'INCONCLUSIVE';
+
+export interface ValidationMetricDelta {
+  metric: string;
+  baseline_value: number;
+  candidate_value: number;
+  difference: number;
+  percentage_change: number;
+  is_improvement: boolean;
+}
+
+export interface ValidationResult {
+  validation_id: string;
+  experiment_id: string;
+  baseline_run_id: string;
+  candidate_run_id: string;
+  metrics: Record<string, ValidationMetricDelta>;
+  validation_status: ValidationStatus;
+  reason: string;
+  created_at: string;
+  // Prediction vs Reality (set by frontend after comparison)
+  prediction_accuracy?: {
+    metrics_compared: Record<string, {
+      predicted: number;
+      actual: number;
+      unit: string;
+      absolute_error: number;
+      relative_error_pct: number;
+      directional_match: boolean;
+    }>;
+    mean_prediction_error_pct: number;
+    prediction_accuracy_score: number;
+    sample_count: number;
+    scientific_note: string;
+  };
+}
+
+// ---- Baseline ----
+export interface BaselineMetricStats {
+  metric: string;
+  sample_count: number;
+  mean: number;
+  median: number;
+  minimum: number;
+  maximum: number;
+  variance: number;
+  jitter: number;
+}
+
+// ---- AI Context ----
+export interface AIContextInput {
+  board_profile: Record<string, unknown>;
+  firmware_source: string;
+  static_findings: FindingRecord[];
+  runtime_metrics: Record<string, number>;
+  baseline_metrics: Record<string, BaselineMetricStats>;
+  runtime_static_correlations: FindingRecord[];
+  optimization_history: OptimizationCandidate[];
+}
+
+// ---- Connection Status ----
+export interface ConnectionStatus {
+  connected: boolean;
+  port?: string;
+  baud_rate?: number;
+  run_id?: string;
+  available_ports: string[];
+}
+
+// ---- Health ----
+export interface HealthStatus {
+  status: 'ONLINE' | 'DEGRADED' | 'OFFLINE';
+  version: string;
+  subsystem: string;
+  database: string;
+  serial_connected: boolean;
+  serial_port?: string;
+  simulator_running: boolean;
+  mode: string;
+  supported_boards: string[];
+}
+
+// ---- WebSocket Frame ----
+export interface WsFrame {
+  type: 'TELEMETRY_UPDATE' | 'RUN_STATUS' | 'ERROR';
+  data: TelemetrySample | RunRecord | ArisError;
+  source: 'PHYSICAL_HARDWARE' | 'SIMULATOR' | 'DEMO';
+}
+
+// ---- AI Provider ----
+export interface AIProviderInfo {
+  provider_id: string;
+  display_name: string;
+  available: boolean;
 }

@@ -1,177 +1,212 @@
-import React, { useState, useEffect } from 'react';
-import { useAris } from './hooks/useAris';
-import { Navbar } from './components/Navbar';
-import { TelemetryDashboard } from './components/Dashboard/TelemetryDashboard';
-import { InteractiveBoardVisualizer } from './components/Hardware/InteractiveBoardVisualizer';
-import { CodeStudio } from './components/CodeStudio/CodeStudio';
-import { OptimizationStudio } from './components/Optimizer/OptimizationStudio';
-import { MemoryVisualizer } from './components/MemoryMap/MemoryVisualizer';
-import { PatentStudio } from './components/PatentReport/PatentStudio';
+// ============================================================
+// ARIS — Application Root
+// Adaptive Runtime Intelligence System for Embedded Devices
+// Engineer 3: AI + Frontend
+// ============================================================
 
-const INITIAL_SKETCH = `// ARIS Benchmark Example 01: Blocking Delay & Sensor Polling Antipattern
-// Target: Arduino Uno / Nano (ATmega328P)
-
-void setup() {
-  Serial.begin(115200);
-  pinMode(13, OUTPUT);
-}
-
-void loop() {
-  // Synchronous ADC reading
-  int sensorValue = analogRead(A0);
-  
-  // High-overhead RAM string literals (consumes SRAM)
-  Serial.print("Sensor Raw ADC Reading: ");
-  Serial.println(sensorValue);
-  
-  // Toggle LED using slow HAL function
-  digitalWrite(13, HIGH);
-  
-  // Severe blocking busy-wait stalls MCU execution for 20ms (320,000 clock cycles)
-  delay(20);
-  
-  digitalWrite(13, LOW);
-  delay(20);
-}`;
+import React, { useState, useCallback } from 'react';
+import { useARIS } from './hooks/useAris';
+import { Navbar, type NavTab } from './components/Navbar';
+import { DashboardView } from './components/Dashboard/DashboardView';
+import { LiveMonitorView } from './components/LiveMonitor/LiveMonitorView';
+import { FirmwareView } from './components/Firmware/FirmwareView';
+import { AnalysisView } from './components/Analysis/AnalysisView';
+import { OptimizationView } from './components/Optimization/OptimizationView';
+import { ExperimentsView } from './components/Experiments/ExperimentsView';
+import { ValidationView } from './components/Validation/ValidationView';
+import { HistoryView } from './components/History/HistoryView';
+import { SettingsView } from './components/Settings/SettingsView';
+import { ErrorBanner } from './components/common/ErrorBanner';
+import type { FindingRecord } from './types';
 
 export const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<string>('dashboard');
-  const [sourceCode, setSourceCode] = useState<string>(INITIAL_SKETCH);
+  const [activeTab, setActiveTab] = useState<NavTab>('dashboard');
+  const [selectedExperimentId, setSelectedExperimentId] = useState<string | null>(null);
 
-  const {
-    connected,
-    boards,
-    selectedBoardId,
-    setSelectedBoardId,
-    boardDetail,
-    telemetry,
-    telemetryHistory,
-    isSimulating,
-    setIsSimulating,
-    simMode,
-    setSimulationMode,
-    staticReport,
-    optimizationResult,
-    verificationReport,
-    memoryMap,
-    patentMarkdown,
-    serialPorts,
-    connectedPort,
-    loading,
-    analyzeCode,
-    optimizeCode,
-    setVirtualInput,
-    refreshSerialPorts,
-    connectSerial,
-    disconnectSerial
-  } = useAris();
+  const aris = useARIS();
 
-  // Run initial analysis on boot
-  useEffect(() => {
-    analyzeCode(sourceCode);
-  }, [selectedBoardId]);
+  const handleNavigate = useCallback((tab: string) => {
+    setActiveTab(tab as NavTab);
+  }, []);
 
-  const handleApplyOptimization = (optimizedCode: string) => {
-    setSourceCode(optimizedCode);
-    analyzeCode(optimizedCode);
-    setSimulationMode('optimized', 0);
-    setActiveTab('code');
-  };
+  const handleStartDemo = useCallback(async () => {
+    await aris.startRun(true);
+  }, [aris]);
+
+  const handleStopRun = useCallback(async () => {
+    await aris.stopRun();
+  }, [aris]);
+
+  const handleGenerateCandidate = useCallback(async (finding: FindingRecord) => {
+    const fw = aris.activeFirmware;
+    const source = fw?.source_code || 'void setup() {}\nvoid loop() {}';
+    await aris.generateCandidate(finding, source);
+    setActiveTab('optimization');
+  }, [aris]);
+
+  const handleNavigateValidation = useCallback((experimentId: string) => {
+    setSelectedExperimentId(experimentId);
+    setActiveTab('experiments'); // We show validation inline
+  }, []);
 
   return (
     <div className="flex flex-col h-screen w-screen bg-[#0a0d14] text-slate-100 overflow-hidden select-none">
-      {/* Top Main Navigation Header */}
+      {/* Navigation Header */}
       <Navbar
         activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        boards={boards}
-        selectedBoardId={selectedBoardId}
-        onSelectBoard={setSelectedBoardId}
-        boardDetail={boardDetail}
-        connected={connected}
-        serialPorts={serialPorts}
-        connectedPort={connectedPort}
-        onRefreshPorts={refreshSerialPorts}
-        onConnectPort={connectSerial}
-        onDisconnectPort={disconnectSerial}
-        isSimulating={isSimulating}
-        onToggleSim={() => setIsSimulating(!isSimulating)}
+        onTabChange={setActiveTab}
+        hardwareConnected={aris.hardwareConnected}
+        wsConnected={aris.wsConnected}
+        backendOnline={aris.backendOnline}
+        isDemo={aris.isDemo}
+        boardName={aris.selectedBoard?.display_name}
       />
 
-      {/* Main Screen Content View */}
+      {/* Global Error Banner */}
+      {aris.lastError && (
+        <div className="px-4 pt-2 shrink-0">
+          <ErrorBanner error={aris.lastError} onDismiss={aris.clearError} />
+        </div>
+      )}
+
+      {/* Main Content */}
       <main className="flex-1 overflow-hidden bg-[#0a0d14]">
         {activeTab === 'dashboard' && (
-          <TelemetryDashboard
-            telemetry={telemetry}
-            telemetryHistory={telemetryHistory}
-            boardDetail={boardDetail}
-            simMode={simMode}
-            onSetSimMode={setSimulationMode}
+          <DashboardView
+            health={aris.health}
+            selectedBoard={aris.selectedBoard}
+            activeRun={aris.activeRun}
+            hardwareConnected={aris.hardwareConnected}
+            isDemo={aris.isDemo}
+            latestSamples={aris.latestSamples}
+            backendOnline={aris.backendOnline}
+            onStartDemo={handleStartDemo}
+            onNavigate={handleNavigate}
           />
         )}
 
-        {activeTab === 'code' && (
-          <CodeStudio
-            sourceCode={sourceCode}
-            setSourceCode={setSourceCode}
-            onAnalyze={analyzeCode}
-            onOptimize={optimizeCode}
-            staticReport={staticReport}
-            boardDetail={boardDetail}
-            loading={loading}
-            onSwitchToOptimizer={() => setActiveTab('optimizer')}
+        {activeTab === 'monitor' && (
+          <LiveMonitorView
+            activeRun={aris.activeRun}
+            wsConnected={aris.wsConnected}
+            isDemo={aris.isDemo}
+            latestSamples={aris.latestSamples}
+            telemetryHistory={aris.telemetryHistory}
+            hardwareConnected={aris.hardwareConnected}
+            onStartRun={handleStartDemo}
           />
         )}
 
-        {activeTab === 'optimizer' && (
-          <OptimizationStudio
-            optimizationResult={optimizationResult}
-            verificationReport={verificationReport}
-            boardDetail={boardDetail}
-            onApplyOptimization={handleApplyOptimization}
-            onRunVerification={() => optimizeCode(sourceCode)}
+        {activeTab === 'firmware' && (
+          <FirmwareView
+            firmwareList={aris.firmwareList}
+            activeFirmware={aris.activeFirmware}
+            selectedBoard={aris.selectedBoard}
+            loading={aris.loading}
+            lastError={aris.lastError}
+            onUpload={aris.uploadFirmware}
+            onSelectFirmware={aris.setActiveFirmware}
+            onClearError={aris.clearError}
           />
         )}
 
-        {activeTab === 'hardware' && (
-          <InteractiveBoardVisualizer
-            boardDetail={boardDetail}
-            pinStates={telemetry?.pin_states || {}}
-            onSetVirtualInput={setVirtualInput}
+        {activeTab === 'analysis' && (
+          <AnalysisView
+            findings={aris.findings}
+            activeRun={aris.activeRun}
+            loading={aris.loading}
+            onGenerateCandidate={handleGenerateCandidate}
           />
         )}
 
-        {activeTab === 'memory' && (
-          <MemoryVisualizer
-            memoryMap={memoryMap}
-            boardDetail={boardDetail}
+        {activeTab === 'optimization' && (
+          <OptimizationView
+            optimizations={aris.optimizations}
+            loading={aris.loading}
+            onApprove={aris.approveOptimization}
+            onReject={aris.rejectOptimization}
+            onCreateExperiment={aris.createExperiment}
           />
         )}
 
-        {activeTab === 'patent' && (
-          <PatentStudio
-            patentMarkdown={patentMarkdown}
-            boardDetail={boardDetail}
+        {activeTab === 'experiments' && (
+          selectedExperimentId ? (
+            <div className="flex flex-col h-full">
+              <div className="flex items-center gap-3 px-4 py-2 border-b border-slate-800 shrink-0">
+                <button
+                  onClick={() => setSelectedExperimentId(null)}
+                  className="text-xs font-mono text-slate-400 hover:text-slate-200 transition-colors"
+                >
+                  ← Back to Experiments
+                </button>
+              </div>
+              <div className="flex-1 overflow-hidden">
+                <ValidationView
+                  experiments={aris.experiments}
+                  validations={aris.validations}
+                  selectedExperimentId={selectedExperimentId}
+                  onLoadValidation={aris.loadValidation}
+                />
+              </div>
+            </div>
+          ) : (
+            <ExperimentsView
+              experiments={aris.experiments}
+              optimizations={aris.optimizations}
+              onRefresh={aris.refreshExperiments}
+              onNavigateValidation={(id) => setSelectedExperimentId(id)}
+            />
+          )
+        )}
+
+        {activeTab === 'history' && (
+          <HistoryView
+            experiments={aris.experiments}
+            optimizations={aris.optimizations}
+            validations={aris.validations}
+            onLoadValidation={aris.loadValidation}
+            onNavigateValidation={handleNavigateValidation}
+          />
+        )}
+
+        {activeTab === 'settings' && (
+          <SettingsView
+            health={aris.health}
+            boards={aris.boards}
+            selectedBoard={aris.selectedBoard}
+            onSelectBoard={aris.setSelectedBoard}
+            hardwareConnected={aris.hardwareConnected}
+            onConnect={aris.connectHardware}
+            onDisconnect={aris.disconnectHardware}
+            isDemo={aris.isDemo}
+            onStartDemo={handleStartDemo}
+            onStopRun={handleStopRun}
+            backendOnline={aris.backendOnline}
           />
         )}
       </main>
 
-      {/* Bottom Status Bar */}
-      <footer className="h-6 bg-[#0d121f] border-t border-slate-800/80 px-4 flex items-center justify-between text-[10px] font-mono text-slate-400">
+      {/* Status Bar */}
+      <footer className="h-6 bg-[#0d121f] border-t border-slate-800/80 px-4 flex items-center justify-between text-[10px] font-mono text-slate-400 shrink-0">
         <div className="flex items-center gap-4">
           <span className="flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
-            Core: {boardDetail?.architecture || 'AVR 8-bit'}
+            <span className={`w-1.5 h-1.5 rounded-full ${aris.backendOnline ? 'bg-cyan-400' : 'bg-red-500'}`} />
+            Core: {aris.selectedBoard?.architecture?.toUpperCase() || 'AVR8'}
           </span>
-          <span>Clock: {boardDetail ? boardDetail.core_frequency_hz / 1e6 : 16} MHz</span>
-          <span>Flash: {boardDetail ? boardDetail.flash_bytes / 1024 : 32} KB</span>
-          <span>SRAM: {boardDetail ? boardDetail.sram_bytes / 1024 : 2} KB</span>
+          <span>Clock: {aris.selectedBoard ? aris.selectedBoard.clock_hz / 1e6 : 16} MHz</span>
+          <span>Flash: {aris.selectedBoard ? aris.selectedBoard.flash_bytes / 1024 : 32} KB</span>
+          <span>SRAM: {aris.selectedBoard ? aris.selectedBoard.sram_bytes / 1024 : 2} KB</span>
+          {aris.isDemo && (
+            <span className="text-amber-400 font-semibold tracking-widest">DEMO MODE</span>
+          )}
         </div>
-
         <div className="flex items-center gap-4">
-          <span>Latency Jitter: ±{telemetry?.jitter_us || 0} µs</span>
-          <span>Observer Bias: -{telemetry?.observer_overhead_pct.toFixed(2) || '0.00'}%</span>
-          <span className="text-cyan-400">ARIS v2.0 Desktop Active</span>
+          {aris.activeRun && (
+            <span className="text-slate-500">
+              Run: {aris.activeRun.run_id} · {aris.activeRun.status}
+            </span>
+          )}
+          <span className="text-cyan-400">ARIS v1.0</span>
         </div>
       </footer>
     </div>
