@@ -5,7 +5,7 @@
 // ============================================================
 
 import React from 'react';
-import { Cpu, MemoryStick, Zap, Activity, Clock, AlertTriangle } from 'lucide-react';
+import { Cpu, MemoryStick, Zap, Activity, Clock, AlertTriangle, Usb } from 'lucide-react';
 import { MetricBadge } from '../common/MetricBadge';
 import type { BoardProfile, RunRecord, TelemetrySample, HealthStatus } from '../../types';
 
@@ -18,6 +18,7 @@ interface DashboardViewProps {
   latestSamples: Record<string, TelemetrySample>;
   backendOnline: boolean;
   onStartDemo: () => void;
+  onStartHardwareRun?: () => void;
   onNavigate: (tab: string) => void;
 }
 
@@ -41,6 +42,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   latestSamples,
   backendOnline,
   onStartDemo,
+  onStartHardwareRun,
   onNavigate,
 }) => {
   const runStatusColor: Record<string, string> = {
@@ -60,7 +62,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <InfoCard
           label="Board"
-          value={selectedBoard?.display_name || '—'}
+          value={selectedBoard?.display_name || 'Detecting…'}
           icon={<Cpu className="w-4 h-4 text-cyan-400" />}
         />
         <InfoCard
@@ -83,16 +85,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       {/* Connection + Run Status */}
       <div className="flex items-center gap-4 bg-slate-900/60 border border-slate-800 rounded p-3">
         <div className="flex items-center gap-2">
-          <div className={`w-2 h-2 rounded-full ${hardwareConnected ? 'bg-emerald-400' : isDemo ? 'bg-amber-400' : 'bg-slate-600'}`} />
-          <span className="text-xs font-mono text-slate-400">
-            Hardware: {hardwareConnected ? 'Connected' : isDemo ? 'Demo / Simulated' : 'Disconnected'}
+          <div className={`w-2 h-2 rounded-full ${hardwareConnected ? 'bg-emerald-400 animate-pulse' : isDemo ? 'bg-amber-400' : 'bg-slate-600'}`} />
+          <span className="text-xs font-mono text-slate-300 font-medium">
+            Hardware: {hardwareConnected ? 'Connected (Auto-Detected)' : 'Plug Arduino via USB to Auto-Connect'}
           </span>
         </div>
         <div className="w-px h-4 bg-slate-800" />
         <div className="flex items-center gap-2">
           <span className="text-xs font-mono text-slate-500">Run:</span>
           <span className={`text-xs font-mono font-semibold ${activeRun ? runStatusColor[activeRun.status] : 'text-slate-600'}`}>
-            {activeRun ? `${activeRun.run_id} — ${activeRun.status}` : 'No Active Run'}
+            {activeRun ? `${activeRun.run_id} — ${activeRun.status}` : hardwareConnected ? 'Ready to Stream' : 'Awaiting Hardware'}
           </span>
         </div>
         {!backendOnline && (
@@ -105,12 +107,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </>
         )}
         <div className="flex-1" />
-        {!activeRun && backendOnline && (
+        {hardwareConnected && !activeRun && (
           <button
-            onClick={onStartDemo}
-            className="px-3 py-1 text-xs font-mono bg-amber-500/10 border border-amber-500/30 text-amber-400 rounded hover:bg-amber-500/20 transition-colors"
+            onClick={onStartHardwareRun}
+            className="px-3 py-1 text-xs font-mono bg-emerald-500/10 border border-emerald-500/40 text-emerald-400 rounded hover:bg-emerald-500/20 transition-colors flex items-center gap-1.5"
           >
-            Start Demo Run
+            <Usb className="w-3 h-3" />
+            Start Hardware Stream
           </button>
         )}
         {activeRun && (

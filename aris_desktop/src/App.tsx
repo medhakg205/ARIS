@@ -33,6 +33,11 @@ export const App: React.FC = () => {
     await aris.startRun(true);
   }, [aris]);
 
+  const handleStartHardwareRun = useCallback(async () => {
+    await aris.startRun(false);
+    setActiveTab('monitor');
+  }, [aris]);
+
   const handleStopRun = useCallback(async () => {
     await aris.stopRun();
   }, [aris]);
@@ -81,6 +86,7 @@ export const App: React.FC = () => {
             latestSamples={aris.latestSamples}
             backendOnline={aris.backendOnline}
             onStartDemo={handleStartDemo}
+            onStartHardwareRun={handleStartHardwareRun}
             onNavigate={handleNavigate}
           />
         )}
@@ -93,7 +99,7 @@ export const App: React.FC = () => {
             latestSamples={aris.latestSamples}
             telemetryHistory={aris.telemetryHistory}
             hardwareConnected={aris.hardwareConnected}
-            onStartRun={handleStartDemo}
+            onStartRun={handleStartHardwareRun}
           />
         )}
 

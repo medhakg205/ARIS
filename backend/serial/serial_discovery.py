@@ -23,17 +23,20 @@ KNOWN_VENDORS = {
 
 # Known USB Product IDs for specific Arduino models
 KNOWN_PRODUCTS = {
-    # Arduino Uno R3
+    # Arduino Uno R3 & clones
     (0x2341, 0x0043): "arduino_uno",
     (0x2341, 0x0001): "arduino_uno",
     (0x2A03, 0x0043): "arduino_uno",
-    # Arduino Mega 2560 R3
+    (0x1A86, 0x7523): "arduino_uno",  # CH340 Uno / Nano clone default
+    (0x1A86, 0x5523): "arduino_uno",  # CH341
+    (0x10C4, 0xEA60): "arduino_nano", # CP2102 Nano clone
+    # Arduino Mega 2560 R3 & clones
     (0x2341, 0x0010): "arduino_mega",
     (0x2341, 0x0042): "arduino_mega",
     (0x2A03, 0x0042): "arduino_mega",
     # Arduino Nano
     (0x2341, 0x0070): "arduino_nano",
-    (0x0403, 0x6001): "arduino_nano"  # Traditional FTDI Nano
+    (0x0403, 0x6001): "arduino_nano",  # Traditional FTDI Nano
 }
 
 

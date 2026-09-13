@@ -31,13 +31,55 @@ def connection_status() -> Dict[str, Any]:
     """
     serial_mgr = get_serial_mgr()
     simulator = get_simulator()
-    ports = [p.to_dict() for p in scan_serial_ports()]
+    ports_objects = scan_serial_ports()
+    ports = [p.to_dict() for p in ports_objects]
 
     status = serial_mgr.get_status()
     status["discovered_ports"] = ports
+    status["available_ports"] = [p["device"] for p in ports]
     status["simulator_active"] = simulator.running
     status["mode"] = "DEMO MODE" if simulator.running else "PHYSICAL HARDWARE"
     return status
+
+
+@router.post("/api/connection/auto-detect")
+def auto_detect_and_connect(run_id: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Automatically scans USB/COM ports, identifies the connected Arduino board model
+    (Uno, Nano, Mega), retrieves its hardware memory specifications, and establishes
+    a serial telemetry connection without requiring manual selection.
+    """
+    ports = scan_serial_ports()
+    if not ports:
+        return {
+            "found": False,
+            "connected": False,
+            "message": "No serial ports detected. Please connect an Arduino via USB.",
+            "board": None
+        }
+
+    # Find first port identified as Arduino, or first available serial device
+    target_port = next((p for p in ports if p.is_arduino), ports[0])
+    board_id = target_port.suggested_board_id or "arduino_uno"
+
+    from backend.firmware.board_profiles import get_board_profile
+    profile = get_board_profile(board_id)
+
+    serial_mgr = get_serial_mgr()
+    simulator = get_simulator()
+    if simulator.running:
+        simulator.stop()
+
+    connect_result = serial_mgr.connect(port=target_port.device, baud_rate=115200, run_id=run_id)
+
+    return {
+        "found": True,
+        "connected": connect_result.get("connected", False),
+        "port": target_port.device,
+        "board_id": board_id,
+        "board_profile": profile.to_dict(),
+        "description": target_port.description
+    }
 
 
 @router.post("/api/connection/connect")

@@ -56,13 +56,21 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
     return (
       <div className="flex flex-col items-center justify-center h-full gap-4 text-slate-500">
         <Activity className="w-12 h-12 text-slate-700" />
-        <p className="font-mono text-sm">No active run. Start a run to begin live monitoring.</p>
-        <button
-          onClick={onStartRun}
-          className="px-4 py-2 text-xs font-mono bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 rounded hover:bg-cyan-500/20 transition-colors"
-        >
-          Start Demo Run
-        </button>
+        <p className="font-mono text-sm">
+          {hardwareConnected ? 'Microcontroller detected and connected.' : 'Plug your Arduino via USB to stream real telemetry.'}
+        </p>
+        {hardwareConnected ? (
+          <button
+            onClick={onStartRun}
+            className="px-4 py-2 text-xs font-mono bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded hover:bg-emerald-500/20 transition-colors"
+          >
+            Start Live Hardware Run
+          </button>
+        ) : (
+          <div className="text-[11px] font-mono text-slate-500 bg-slate-900 border border-slate-800 px-4 py-2 rounded">
+            Waiting for USB serial device…
+          </div>
+        )}
       </div>
     );
   }

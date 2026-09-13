@@ -254,12 +254,26 @@ export interface AIContextInput {
 }
 
 // ---- Connection Status ----
+export interface DiscoveredPortInfo {
+  device: string;
+  description: string;
+  hwid: string;
+  vid?: string;
+  pid?: string;
+  manufacturer?: string;
+  is_arduino: boolean;
+  suggested_board_id?: string;
+}
+
 export interface ConnectionStatus {
   connected: boolean;
   port?: string;
   baud_rate?: number;
   run_id?: string;
   available_ports: string[];
+  discovered_ports?: DiscoveredPortInfo[];
+  simulator_active?: boolean;
+  mode?: string;
 }
 
 // ---- Health ----

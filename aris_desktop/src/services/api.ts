@@ -93,6 +93,15 @@ export const apiConnectionStatus = () => get<ConnectionStatus>('/api/connection/
 export const apiConnect = (port: string, baudRate = 115200, runId?: string) =>
   post<ConnectionStatus>('/api/connection/connect', { port, baud_rate: baudRate, run_id: runId });
 export const apiDisconnect = () => post<{ connected: false }>('/api/connection/disconnect');
+export const apiAutoDetect = (runId?: string) =>
+  post<{
+    found: boolean;
+    connected: boolean;
+    port?: string;
+    board_id?: string;
+    board_profile?: BoardProfile;
+    description?: string;
+  }>('/api/connection/auto-detect', { run_id: runId });
 
 // ---- Firmware ----
 export const apiUploadFirmware = (

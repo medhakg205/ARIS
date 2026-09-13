@@ -39,6 +39,7 @@ import {
   apiListExperiments,
   apiGetValidationResult,
   apiGetAIProviders,
+  apiAutoDetect,
   ARISApiError,
 } from '../services/api';
 import { arisWs } from '../services/websocket';
@@ -135,6 +136,56 @@ export function useARIS() {
       .catch(() => {});
   }, [backendOnline]);
 
+  // ---- Automatic Hardware Detection & Auto-Connection Polling ----
+  // Scans USB/COM ports every 2.5s. When an Arduino is plugged in,
+  // automatically connects to the COM port, sets the hardware board profile (specs/memory),
+  // and starts streaming physical telemetry without requiring manual user selection.
+  useEffect(() => {
+    if (!backendOnline) return;
+    let isDetecting = false;
+
+    const scanHardware = async () => {
+      if (isDetecting) return;
+      try {
+        const cs = await apiConnectionStatus();
+        setConnectionStatus(cs);
+        setHardwareConnected(cs.connected);
+
+        // If hardware is already connected, auto-sync board profile if known
+        if (cs.connected) {
+          setIsDemo(false);
+          setIsSimulated(false);
+          return;
+        }
+
+        // Check if any serial ports are physically present
+        if (cs.available_ports && cs.available_ports.length > 0) {
+          isDetecting = true;
+          const result = await apiAutoDetect();
+          if (result.found && result.connected) {
+            setHardwareConnected(true);
+            setIsDemo(false);
+            setIsSimulated(false);
+            if (result.board_profile) {
+              setSelectedBoard(result.board_profile);
+            } else if (result.board_id && boards.length > 0) {
+              const matched = boards.find((b) => b.board_id === result.board_id);
+              if (matched) setSelectedBoard(matched);
+            }
+          }
+        }
+      } catch {
+        // Ignore polling errors
+      } finally {
+        isDetecting = false;
+      }
+    };
+
+    scanHardware();
+    const interval = setInterval(scanHardware, 2500);
+    return () => clearInterval(interval);
+  }, [backendOnline, boards]);
+
   // ---- Load firmware list ----
   const refreshFirmware = useCallback(() => {
     if (!backendOnline) return;
@@ -175,6 +226,14 @@ export function useARIS() {
               : updated,
           };
         });
+
+        // Automatically synchronize board profile if sample indicates specific board
+        if (sample.board_id && (!selectedBoard || selectedBoard.board_id !== sample.board_id)) {
+          const matched = boards.find((b) => b.board_id === sample.board_id);
+          if (matched) {
+            setSelectedBoard(matched);
+          }
+        }
       }
       if (msg.type === 'ERROR') {
         const err = msg.data as import('../types').ArisError;

@@ -127,7 +127,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       </Section>
 
       {/* Board Selection */}
-      <Section label="Target Board">
+      <Section label="Target Board Profile">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded">
+            Auto-Detect Active: Board and memory limits auto-configure on USB plug-in
+          </span>
+        </div>
         <div className="grid grid-cols-3 gap-3">
           {boards.map((board) => (
             <button
@@ -135,7 +140,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               onClick={() => onSelectBoard(board)}
               className={`text-left p-3 rounded border transition-all ${
                 selectedBoard?.board_id === board.board_id
-                  ? 'border-cyan-500/50 bg-cyan-500/5'
+                  ? 'border-cyan-500/50 bg-cyan-500/5 ring-1 ring-cyan-500/30'
                   : 'border-slate-800 hover:border-slate-700'
               }`}
             >
