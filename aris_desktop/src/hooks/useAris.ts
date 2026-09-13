@@ -106,6 +106,7 @@ export function useARIS() {
         if (!mounted) return;
         setHealth(h);
         setBackendOnline(true);
+        setLastError(null);
         setHardwareConnected(h.serial_connected);
       } catch {
         if (!mounted) return;
