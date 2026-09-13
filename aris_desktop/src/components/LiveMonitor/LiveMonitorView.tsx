@@ -76,32 +76,49 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
   }
 
   return (
-    <div className="flex flex-col h-full overflow-auto p-4 gap-4">
-      {/* Connection Status Bar */}
-      <div className="flex items-center gap-4 bg-slate-900/60 border border-slate-800 rounded px-4 py-2">
-        {wsConnected ? (
-          <><Wifi className="w-4 h-4 text-emerald-400" />
-          <span className="text-xs font-mono text-emerald-400">WebSocket Live</span></>
-        ) : (
-          <><WifiOff className="w-4 h-4 text-red-400" />
-          <span className="text-xs font-mono text-red-400">WebSocket Disconnected — Reconnecting…</span></>
-        )}
-        <div className="w-px h-4 bg-slate-800" />
-        <span className="text-xs font-mono text-slate-500">Run: {activeRun.run_id}</span>
-        <div className="w-px h-4 bg-slate-800" />
-        <span className={`text-xs font-mono ${activeRun.status === 'RUNNING' || activeRun.status === 'COLLECTING' ? 'text-emerald-400' : 'text-slate-400'}`}>
-          {activeRun.status}
-        </span>
-        <div className="flex-1" />
-        <span className="text-[10px] font-mono text-slate-500">seq #{seqCount}</span>
-        {isDemo && (
-          <span className="text-[10px] font-mono px-1.5 py-0.5 border border-amber-500/40 bg-amber-500/10 text-amber-400 rounded">
-            SIMULATED
+    <div className="flex flex-col h-full overflow-auto p-6 gap-6 max-w-7xl mx-auto w-full">
+      {/* Realtime Telemetry Telemetry Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-4 bg-[#0d111a]/80 backdrop-blur-xl border border-white/[0.08] rounded-2xl px-5 py-3 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            {wsConnected ? (
+              <>
+                <div className="relative flex items-center justify-center">
+                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
+                  <div className="absolute w-4 h-4 rounded-full bg-emerald-400/30 animate-ping pointer-events-none" />
+                </div>
+                <span className="text-xs font-semibold text-emerald-400 font-sans">Telemetry Stream Active</span>
+              </>
+            ) : (
+              <>
+                <div className="w-2.5 h-2.5 rounded-full bg-rose-400" />
+                <span className="text-xs font-semibold text-rose-400 font-sans">Connecting to Telemetry…</span>
+              </>
+            )}
+          </div>
+
+          <div className="w-px h-4 bg-white/[0.08]" />
+          <span className="text-xs text-slate-400 font-sans">
+            Session: <span className="font-mono text-slate-200">{activeRun.run_id}</span>
           </span>
-        )}
+
+          <div className="w-px h-4 bg-white/[0.08]" />
+          <span className="text-xs px-2.5 py-0.5 rounded-full bg-white/[0.04] border border-white/[0.06] text-cyan-400 font-mono font-medium">
+            {activeRun.status}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <span className="text-xs font-mono text-slate-400">Frame #{seqCount}</span>
+          {isDemo && (
+            <span className="text-[10px] font-medium px-2 py-0.5 border border-amber-500/30 bg-amber-500/10 text-amber-400 rounded-full">
+              SYNTHETIC / DEMO
+            </span>
+          )}
+        </div>
       </div>
 
-      {/* Charts Grid */}
+      {/* Primary Oscilloscope Real-Time Charts Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {CHART_METRICS.map(({ key, label, color, classification }) => {
           const history = telemetryHistory[key] || [];
@@ -112,10 +129,10 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
           const latest = latestSamples[key];
 
           return (
-            <div key={key} className="bg-slate-900/60 border border-slate-800 rounded p-3">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[10px] font-mono text-slate-400 uppercase tracking-widest">{label}</span>
-                <span className={`text-[9px] font-mono px-1 py-0.5 rounded border ${
+            <div key={key} className="bg-[#0d111a]/80 backdrop-blur-xl border border-white/[0.08] hover:border-white/[0.16] transition-all duration-200 rounded-3xl p-5 shadow-sm">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs font-sans font-semibold text-slate-300 tracking-wider uppercase">{label}</span>
+                <span className={`text-[10px] font-sans font-medium px-2 py-0.5 rounded-full border ${
                   classification === 'MEASURED' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' :
                   classification === 'ESTIMATED' ? 'bg-amber-500/10 text-amber-400 border-amber-500/30' :
                   'bg-cyan-500/10 text-cyan-400 border-cyan-500/30'
@@ -123,26 +140,37 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
                   {classification}
                 </span>
               </div>
+
               {latest && (
-                <div className="text-2xl font-mono font-bold tabular-nums mb-2" style={{ color }}>
-                  {latest.value.toFixed(2)}
-                  <span className="text-sm font-normal text-slate-500 ml-1">{latest.unit}</span>
+                <div className="flex items-baseline gap-1.5 mb-2">
+                  <span className="text-3xl font-sans font-bold text-white tabular-nums tracking-tight">
+                    {latest.value.toFixed(2)}
+                  </span>
+                  <span className="text-xs font-mono text-slate-400 font-medium">{latest.unit}</span>
                 </div>
               )}
-              <div className="h-32">
+
+              <div className="h-36 pt-2">
                 {chartData.length > 1 ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={chartData}>
-                      <CartesianGrid strokeDasharray="2 4" stroke="#1e2740" />
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.04)" />
                       <XAxis dataKey="t" hide />
                       <YAxis
-                        width={40}
-                        tick={{ fontSize: 9, fill: '#475569', fontFamily: 'monospace' }}
+                        width={35}
+                        tick={{ fontSize: 10, fill: '#64748b', fontFamily: 'monospace' }}
                         tickLine={false}
                         axisLine={false}
                       />
                       <Tooltip
-                        contentStyle={{ background: '#0d121f', border: '1px solid #1e2740', borderRadius: 4, fontFamily: 'monospace', fontSize: 11 }}
+                        contentStyle={{
+                          background: 'rgba(13, 17, 26, 0.95)',
+                          border: '1px solid rgba(255, 255, 255, 0.1)',
+                          borderRadius: 12,
+                          fontFamily: 'sans-serif',
+                          fontSize: 12,
+                          boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5)'
+                        }}
                         labelFormatter={() => ''}
                         formatter={(v: number) => [v.toFixed(3), label]}
                       />
@@ -150,15 +178,15 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
                         type="monotone"
                         dataKey="v"
                         stroke={color}
-                        strokeWidth={1.5}
+                        strokeWidth={2}
                         dot={false}
                         isAnimationActive={false}
                       />
                     </LineChart>
                   </ResponsiveContainer>
                 ) : (
-                  <div className="h-full flex items-center justify-center text-[10px] font-mono text-slate-600">
-                    Waiting for data…
+                  <div className="h-full flex items-center justify-center text-xs font-sans text-slate-500">
+                    Awaiting telemetry packets…
                   </div>
                 )}
               </div>
@@ -167,21 +195,26 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
         })}
       </div>
 
-      {/* Secondary Metric Cards */}
-      <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
-        {LIVE_METRICS.map(({ key, label, unit, classification }) => {
-          const s = latestSamples[key];
-          return (
-            <MetricBadge
-              key={key}
-              label={label}
-              value={s ? s.value : '—'}
-              unit={s?.unit || unit}
-              classification={s?.classification || classification}
-              confidence={s?.confidence}
-            />
-          );
-        })}
+      {/* Secondary Hardware Activity Probes */}
+      <div>
+        <h3 className="text-xs font-sans font-semibold text-slate-300 uppercase tracking-wider mb-3">
+          Hardware Peripheral Probes
+        </h3>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          {LIVE_METRICS.map(({ key, label, unit, classification }) => {
+            const s = latestSamples[key];
+            return (
+              <MetricBadge
+                key={key}
+                label={label}
+                value={s ? s.value : '—'}
+                unit={s?.unit || unit}
+                classification={s?.classification || classification}
+                confidence={s?.confidence}
+              />
+            );
+          })}
+        </div>
       </div>
     </div>
   );

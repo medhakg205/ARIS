@@ -9,21 +9,29 @@ export default {
     extend: {
       colors: {
         aris: {
-          bg: '#0a0d14',
-          card: '#101522',
-          border: '#1e293b',
-          accent: '#00f0ff',
-          glow: '#00f0ff33',
+          bg: '#07090e',
+          card: '#0d111a',
+          cardHover: '#131926',
+          border: 'rgba(255, 255, 255, 0.08)',
+          borderHover: 'rgba(255, 255, 255, 0.16)',
+          accent: '#00e5ff',
+          glow: 'rgba(0, 229, 255, 0.25)',
           success: '#10b981',
           warning: '#f59e0b',
-          danger: '#ef4444',
-          purple: '#a855f7'
+          danger: '#f43f5e',
+          purple: '#a855f7',
         }
       },
       fontFamily: {
-        mono: ['Fira Code', 'Cascadia Code', 'Consolas', 'monospace'],
-        sans: ['Inter', 'system-ui', 'sans-serif']
-      }
+        sans: ['"Samsung Sharp Sans"', '"SamsungOne"', '"Plus Jakarta Sans"', 'Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+        samsung: ['"Samsung Sharp Sans"', '"SamsungOne"', 'sans-serif'],
+        mono: ['"JetBrains Mono"', '"Fira Code"', 'Cascadia Code', 'Consolas', 'monospace']
+      },
+      borderRadius: {
+        '2xl': '1rem',
+        '3xl': '1.5rem',
+        '4xl': '2rem',
+      },
     },
   },
   plugins: [],

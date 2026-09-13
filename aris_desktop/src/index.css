@@ -4,58 +4,80 @@
 
 @layer base {
   body {
-    @apply bg-[#0a0d14] text-slate-200 font-sans;
+    @apply bg-[#07090e] text-slate-100 font-sans tracking-tight antialiased;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1, h2, h3, h4, .font-heading {
+    font-family: 'Samsung Sharp Sans', 'SamsungOne', 'Plus Jakarta Sans', sans-serif;
+    letter-spacing: -0.025em;
   }
 }
 
-/* Custom Cyber / Aerospace Scrollbar */
+/* Minimalist Tesla / Home Style Surfaces */
+.tesla-glass {
+  background: rgba(13, 17, 26, 0.72);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.tesla-glass-hover {
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.tesla-glass-hover:hover {
+  background: rgba(19, 25, 38, 0.85);
+  border-color: rgba(255, 255, 255, 0.16);
+  transform: translateY(-1px);
+  box-shadow: 0 12px 30px -10px rgba(0, 0, 0, 0.5);
+}
+
+.tesla-subtle-glow {
+  box-shadow: 0 0 30px -5px rgba(0, 229, 255, 0.12);
+}
+
+/* Google Home Smooth Control Pill */
+.home-pill {
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.home-pill:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+/* Ultra-Clean Scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #0d121f;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #1e293b;
-  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #00f0ff;
+  background: rgba(255, 255, 255, 0.25);
 }
 
-/* Oscilloscope Grid Effect */
-.oscilloscope-grid {
-  background-size: 20px 20px;
-  background-image: 
-    linear-gradient(to right, rgba(0, 240, 255, 0.05) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(0, 240, 255, 0.05) 1px, transparent 1px);
+/* Radar & Pulse Animations */
+@keyframes soft-pulse {
+  0% { transform: scale(0.95); opacity: 0.8; }
+  50% { transform: scale(1.05); opacity: 1; }
+  100% { transform: scale(0.95); opacity: 0.8; }
 }
 
-/* Neon Glow Accents */
-.neon-border {
-  box-shadow: 0 0 15px rgba(0, 240, 255, 0.15), inset 0 0 15px rgba(0, 240, 255, 0.05);
-}
-
-.neon-border-green {
-  box-shadow: 0 0 15px rgba(16, 185, 129, 0.15), inset 0 0 15px rgba(16, 185, 129, 0.05);
-}
-
-.neon-border-purple {
-  box-shadow: 0 0 15px rgba(168, 85, 247, 0.15), inset 0 0 15px rgba(168, 85, 247, 0.05);
-}
-
-/* Animated Pulse Dot */
-@keyframes radar-pulse {
-  0% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(1.6); opacity: 0.4; }
-  100% { transform: scale(2.2); opacity: 0; }
-}
-
-.radar-ping {
-  animation: radar-pulse 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+.animate-soft-pulse {
+  animation: soft-pulse 3s ease-in-out infinite;
 }
