@@ -7,11 +7,11 @@ let pythonProcess = null;
 
 function startPythonBackend() {
   const pythonPath = 'python';
-  const serverScript = path.join(__dirname, '..', '..', 'aris_core', 'api_server.py');
+  const projectRoot = path.join(__dirname, '..', '..');
   
-  console.log(`[ARIS Electron] Starting Python Backend: ${serverScript}`);
-  pythonProcess = spawn(pythonPath, [serverScript], {
-    cwd: path.join(__dirname, '..', '..'),
+  console.log(`[ARIS Electron] Starting Python Backend: python -m backend.api.app in ${projectRoot}`);
+  pythonProcess = spawn(pythonPath, ['-m', 'backend.api.app'], {
+    cwd: projectRoot,
     stdio: 'inherit'
   });
 
