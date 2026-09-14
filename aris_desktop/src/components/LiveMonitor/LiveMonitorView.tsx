@@ -76,9 +76,9 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
   }
 
   return (
-    <div className="flex flex-col h-full overflow-auto p-6 gap-6 max-w-7xl mx-auto w-full">
+    <div className="flex flex-col h-full overflow-auto p-4 sm:p-5 gap-3.5 max-w-7xl mx-auto w-full">
       {/* Realtime Telemetry Telemetry Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-4 bg-[#0d111a]/80 backdrop-blur-xl border border-white/[0.08] rounded-2xl px-5 py-3 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-[#0d111a]/80 backdrop-blur-xl border border-white/[0.08] rounded-xl px-4 py-2.5 shadow-sm">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
             {wsConnected ? (

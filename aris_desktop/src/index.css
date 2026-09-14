@@ -4,15 +4,21 @@
 
 @layer base {
   body {
-    @apply bg-[#07090e] text-slate-100 font-sans tracking-tight antialiased;
+    @apply bg-[#07090e] text-slate-100 font-sans antialiased;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    line-height: 1.5;
   }
 
-  h1, h2, h3, h4, .font-heading {
-    font-family: 'Samsung Sharp Sans', 'SamsungOne', 'Plus Jakarta Sans', sans-serif;
-    letter-spacing: -0.025em;
+  h1, h2, h3, h4, .font-heading, .font-samsung {
+    font-family: 'Samsung Sharp Sans', 'Plus Jakarta Sans', sans-serif;
+    letter-spacing: -0.015em;
+    line-height: 1.25;
+  }
+
+  p, span, button, input {
+    overflow-wrap: break-word;
   }
 }
 

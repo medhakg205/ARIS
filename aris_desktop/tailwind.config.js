@@ -23,8 +23,9 @@ export default {
         }
       },
       fontFamily: {
-        sans: ['"Samsung Sharp Sans"', '"SamsungOne"', '"Plus Jakarta Sans"', 'Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
-        samsung: ['"Samsung Sharp Sans"', '"SamsungOne"', 'sans-serif'],
+        sans: ['"Plus Jakarta Sans"', 'Inter', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'sans-serif'],
+        samsung: ['"Samsung Sharp Sans"', '"Plus Jakarta Sans"', 'sans-serif'],
+        heading: ['"Samsung Sharp Sans"', '"Plus Jakarta Sans"', 'sans-serif'],
         mono: ['"JetBrains Mono"', '"Fira Code"', 'Cascadia Code', 'Consolas', 'monospace']
       },
       borderRadius: {
