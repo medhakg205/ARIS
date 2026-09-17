@@ -53,21 +53,24 @@ export const FirmwareView: React.FC<FirmwareViewProps> = ({
   onClearError,
 }) => {
   const [sourceCode, setSourceCode] = useState(() => {
-    return activeIDESketch?.source_code || activeFirmware?.source_code || EXAMPLE_SKETCH;
+    return activeFirmware?.source_code || activeIDESketch?.source_code || '';
   });
   const [firmwareName, setFirmwareName] = useState(() => {
-    return activeIDESketch?.name || activeFirmware?.name || 'MySketch';
+    return activeFirmware?.name || activeIDESketch?.name || '';
   });
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [isSyncing, setIsSyncing] = useState(false);
 
-  // Synchronize editor if activeIDESketch updates
+  // Synchronize editor if activeFirmware or activeIDESketch updates
   useEffect(() => {
-    if (activeIDESketch?.source_code && (!activeFirmware || activeFirmware.firmware_id === 'ide-auto-sync')) {
+    if (activeFirmware?.source_code) {
+      setSourceCode(activeFirmware.source_code);
+      setFirmwareName(activeFirmware.name);
+    } else if (activeIDESketch?.source_code) {
       setSourceCode(activeIDESketch.source_code);
       setFirmwareName(activeIDESketch.name);
     }
-  }, [activeIDESketch, activeFirmware]);
+  }, [activeFirmware, activeIDESketch]);
 
   const handleUpload = async () => {
     setUploadStatus('idle');
@@ -100,7 +103,7 @@ export const FirmwareView: React.FC<FirmwareViewProps> = ({
       {/* Left: Source editor */}
       <div className="flex-1 flex flex-col min-w-0 border-r border-slate-800/80">
         {/* Arduino IDE Auto-Sync Banner */}
-        {activeIDESketch ? (
+        {activeIDESketch && sourceCode ? (
           <div className="px-4 py-2 bg-blue-950/30 border-b border-blue-500/20 flex items-center justify-between gap-3 shrink-0">
             <div className="flex items-center gap-2 min-w-0">
               <span className="flex h-2 w-2 relative shrink-0">
@@ -132,13 +135,13 @@ export const FirmwareView: React.FC<FirmwareViewProps> = ({
           </div>
         ) : (
           <div className="px-4 py-2 bg-slate-900/40 border-b border-slate-800 text-[11px] font-mono text-slate-400 flex items-center justify-between">
-            <span>⚡ Arduino IDE Sync: Open or compile your code in Arduino IDE, and it appears here automatically.</span>
+            <span>⚡ Arduino IDE Sync: Code uploaded to your microcontroller will automatically appear here.</span>
             <button
               onClick={handleManualRefresh}
               disabled={isSyncing}
               className="flex items-center gap-1 px-2 py-0.5 text-[10px] text-blue-400 hover:text-blue-300 border border-blue-500/20 rounded"
             >
-              <RefreshCw className={`w-3 h-3 ${isSyncing ? 'animate-spin' : ''}`} /> Rescan
+              <RefreshCw className={`w-3 h-3 ${isSyncing ? 'animate-spin' : ''}`} /> Check Arduino IDE
             </button>
           </div>
         )}
@@ -149,23 +152,25 @@ export const FirmwareView: React.FC<FirmwareViewProps> = ({
           <input
             value={firmwareName}
             onChange={(e) => setFirmwareName(e.target.value)}
-            className="bg-transparent text-sm font-mono text-slate-200 border-none outline-none w-48 font-medium"
-            placeholder="Firmware name"
+            className="bg-transparent text-sm font-mono text-slate-200 border-none outline-none w-56 font-medium placeholder:text-slate-600"
+            placeholder="No sketch loaded..."
           />
           <div className="text-[10px] font-mono text-slate-500 flex items-center gap-1.5">
             <Cpu className="w-3 h-3 text-slate-400" />
             Target MCU: <span className="text-slate-300">{selectedBoard?.display_name || 'Hardware Not Connected'}</span>
           </div>
           <div className="flex-1" />
-          <button
-            onClick={handleUpload}
-            disabled={loading.firmware}
-            className="flex items-center gap-2 px-3 py-1 text-xs font-mono bg-blue-500/10 border border-blue-500/30 text-blue-400 rounded hover:bg-blue-500/20 transition-colors disabled:opacity-50"
-            title="Register snapshot into ARIS Firmware Vault"
-          >
-            <Upload className="w-3.5 h-3.5" />
-            {loading.firmware ? 'Saving…' : 'Snapshot to Library'}
-          </button>
+          {sourceCode ? (
+            <button
+              onClick={handleUpload}
+              disabled={loading.firmware}
+              className="flex items-center gap-2 px-3 py-1 text-xs font-mono bg-blue-500/10 border border-blue-500/30 text-blue-400 rounded hover:bg-blue-500/20 transition-colors disabled:opacity-50"
+              title="Register snapshot into ARIS Firmware Vault"
+            >
+              <Upload className="w-3.5 h-3.5" />
+              {loading.firmware ? 'Saving…' : 'Snapshot to Library'}
+            </button>
+          ) : null}
           {uploadStatus === 'success' && <CheckCircle className="w-4 h-4 text-emerald-400" />}
           {uploadStatus === 'error' && <XCircle className="w-4 h-4 text-red-400" />}
         </div>
@@ -177,23 +182,47 @@ export const FirmwareView: React.FC<FirmwareViewProps> = ({
           </div>
         )}
 
-        {/* Code Editor */}
-        <textarea
-          value={sourceCode}
-          onChange={(e) => setSourceCode(e.target.value)}
-          className="flex-1 bg-[#07090e] text-slate-200 font-mono text-xs leading-relaxed p-4 resize-none outline-none border-none selection:bg-blue-500/30"
-          spellCheck={false}
-        />
+        {/* Code Editor or Blank State */}
+        {sourceCode ? (
+          <textarea
+            value={sourceCode}
+            onChange={(e) => setSourceCode(e.target.value)}
+            className="flex-1 bg-[#07090e] text-slate-200 font-mono text-xs leading-relaxed p-4 resize-none outline-none border-none selection:bg-blue-500/30"
+            spellCheck={false}
+          />
+        ) : (
+          <div className="flex-1 flex flex-col items-center justify-center p-8 bg-[#07090e] select-none text-center">
+            <div className="w-16 h-16 rounded-2xl bg-blue-500/5 border border-blue-500/20 flex items-center justify-center mb-4 shadow-inner">
+              <FileCode className="w-8 h-8 text-blue-400/60 stroke-[1.5]" />
+            </div>
+            <h3 className="text-sm font-sans font-semibold text-slate-200 tracking-tight mb-1">
+              Code not uploaded from Arduino IDE yet...
+            </h3>
+            <p className="text-xs font-sans text-slate-400 max-w-md leading-relaxed mb-6">
+              When you upload or verify your sketch in the official Arduino IDE, the source code will automatically pop up here for runtime analysis and closed-loop optimization.
+            </p>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleManualRefresh}
+                disabled={isSyncing}
+                className="flex items-center gap-2 px-3.5 py-1.5 text-xs font-mono bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 border border-blue-500/30 rounded-lg transition-colors"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+                {isSyncing ? 'Checking IDE...' : 'Scan Arduino IDE'}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Footer stats */}
         <div className="flex items-center justify-between px-4 py-1.5 border-t border-slate-800 text-[10px] font-mono text-slate-500 shrink-0 bg-slate-900/30">
           <div className="flex items-center gap-4">
-            <span>{sourceCode.split('\n').length} lines</span>
-            <span>{new Blob([sourceCode]).size} bytes</span>
+            <span>{sourceCode ? sourceCode.split('\n').length : 0} lines</span>
+            <span>{sourceCode ? new Blob([sourceCode]).size : 0} bytes</span>
             <span>Arduino C/C++ (.ino)</span>
           </div>
           <div className="text-slate-400">
-            {activeIDESketch ? '⚡ Auto-synchronized with Arduino IDE' : 'Ready for runtime correlation'}
+            {sourceCode ? (activeIDESketch ? '⚡ Auto-synchronized with Arduino IDE' : 'Ready for runtime correlation') : 'Awaiting sketch upload from Arduino IDE'}
           </div>
         </div>
       </div>

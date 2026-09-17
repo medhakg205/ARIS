@@ -203,21 +203,6 @@ export function useARIS() {
       const resp = await apiGetRecentIDESketch();
       if (resp.found && resp.sketches.length > 0) {
         setIdeSketches(resp.sketches);
-        if (resp.active_sketch) {
-          setActiveIDESketch(resp.active_sketch);
-          // Auto-populate activeFirmware if none currently set
-          setActiveFirmware((prev) => {
-            if (!prev && resp.active_sketch?.source_code) {
-              return {
-                firmware_id: 'ide-auto-sync',
-                name: resp.active_sketch.name,
-                source_code: resp.active_sketch.source_code,
-                created_at: new Date(resp.active_sketch.last_modified * 1000).toISOString(),
-              };
-            }
-            return prev;
-          });
-        }
       }
     } catch {
       // Ignore background sync errors
