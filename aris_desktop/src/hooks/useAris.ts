@@ -131,10 +131,12 @@ export function useARIS() {
     apiGetBoards()
       .then((b) => {
         setBoards(b);
-        if (b.length > 0 && !selectedBoard) setSelectedBoard(b[0]);
+        if (b.length > 0 && !selectedBoard && (hardwareConnected || isDemo)) {
+          setSelectedBoard(b[0]);
+        }
       })
       .catch(() => {});
-  }, [backendOnline]);
+  }, [backendOnline, hardwareConnected, isDemo]);
 
   // ---- Automatic Hardware Detection & Auto-Connection Polling ----
   // Scans USB/COM ports every 2.5s. When an Arduino is plugged in,
@@ -156,6 +158,8 @@ export function useARIS() {
           setIsDemo(false);
           setIsSimulated(false);
           return;
+        } else if (!isDemo) {
+          setSelectedBoard(null);
         }
 
         // Check if any serial ports are physically present

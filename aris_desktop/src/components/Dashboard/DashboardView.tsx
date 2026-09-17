@@ -69,12 +69,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div>
             <div className="flex items-center gap-2 mb-1.5 flex-wrap">
               <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-300 bg-white/[0.06] px-2.5 py-0.5 rounded-full border border-white/[0.1]">
-                Active System Target
+                {hardwareConnected ? 'Active Target' : 'Hardware Target'}
               </span>
-              {hardwareConnected && (
+              {hardwareConnected && selectedBoard ? (
                 <span className="text-[10px] font-medium text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20 flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                   USB Auto-Detected
+                </span>
+              ) : (
+                <span className="text-[10px] font-medium text-amber-400 bg-amber-500/10 px-2.5 py-0.5 rounded-full border border-amber-500/20 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                  No Device Connected
                 </span>
               )}
               <button
@@ -87,10 +92,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </button>
             </div>
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white font-samsung leading-tight">
-              {selectedBoard?.display_name || 'Detecting Hardware…'}
+              {hardwareConnected && selectedBoard
+                ? selectedBoard.display_name
+                : 'No Microcontroller Detected'}
             </h1>
             <p className="text-xs text-slate-300 max-w-2xl leading-normal mt-1 font-sans">
-              Real-time telemetry probing ATmega registers, SRAM allocations, loop latency, and interrupt metrics.
+              {hardwareConnected && selectedBoard
+                ? `Real-time telemetry probing ${selectedBoard.mcu?.toUpperCase()} registers, SRAM allocations, loop latency, and interrupt metrics.`
+                : 'Connect your Arduino (Uno, Nano, or Mega) via USB. ARIS automatically detects the COM port, baud rate, and microcontroller architecture.'}
             </p>
           </div>
 
@@ -127,22 +136,22 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mt-3.5 pt-3 border-t border-white/[0.06]">
           <InfoCard
             label="Microcontroller"
-            value={selectedBoard?.mcu?.toUpperCase() || 'ATMEGA328P'}
+            value={hardwareConnected && selectedBoard ? (selectedBoard.mcu?.toUpperCase() || 'ATMEGA328P') : 'Auto-Detect'}
             icon={<Cpu className="w-3.5 h-3.5 text-blue-400" />}
           />
           <InfoCard
             label="Architecture"
-            value={selectedBoard?.architecture?.toUpperCase() || 'AVR8'}
+            value={hardwareConnected && selectedBoard ? (selectedBoard.architecture?.toUpperCase() || 'AVR8') : 'AVR8 / Multi-MCU'}
             icon={<Zap className="w-3.5 h-3.5 text-amber-400" />}
           />
           <InfoCard
             label="Clock Speed"
-            value={selectedBoard ? `${selectedBoard.clock_hz / 1_000_000} MHz` : '16 MHz'}
+            value={hardwareConnected && selectedBoard ? `${selectedBoard.clock_hz / 1_000_000} MHz` : 'Standby'}
             icon={<Clock className="w-3.5 h-3.5 text-slate-300" />}
           />
           <InfoCard
             label="Memory Footprint"
-            value={selectedBoard ? `${selectedBoard.sram_bytes / 1024}K / ${selectedBoard.flash_bytes / 1024}K Flash` : '2K / 32K'}
+            value={hardwareConnected && selectedBoard ? `${selectedBoard.sram_bytes / 1024}K / ${selectedBoard.flash_bytes / 1024}K Flash` : 'Awaiting USB'}
             icon={<MemoryStick className="w-3.5 h-3.5 text-emerald-400" />}
           />
         </div>
@@ -183,24 +192,26 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       {/* Hardware Specifications & Quick Navigation */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5 shrink-0">
         {/* Hardware Peripheral Details */}
-        {selectedBoard && (
-          <div className="lg:col-span-2 bg-[#0e121b]/80 backdrop-blur-md border border-white/[0.08] rounded-2xl p-3.5 sm:p-4 shadow-sm">
-            <h3 className="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2.5 font-sans flex items-center justify-between">
-              <span>Hardware Peripheral Register Map</span>
-              <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 font-mono">
-                100% CANONICAL MATCH
-              </span>
-            </h3>
-            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-              <SpecRow label="Flash Memory" value={`${selectedBoard.flash_bytes / 1024} KB`} />
-              <SpecRow label="Static RAM" value={`${selectedBoard.sram_bytes / 1024} KB`} />
-              <SpecRow label="EEPROM" value={`${selectedBoard.eeprom_bytes / 1024} KB`} />
-              <SpecRow label="Digital GPIO" value={`${selectedBoard.gpio_count} pins`} />
-              <SpecRow label="Analog ADC" value={`${selectedBoard.adc_channels} ch`} />
-              <SpecRow label="Hardware UART" value={`${selectedBoard.uart_count} port`} />
-            </div>
+        <div className="lg:col-span-2 bg-[#0e121b]/80 backdrop-blur-md border border-white/[0.08] rounded-2xl p-3.5 sm:p-4 shadow-sm">
+          <h3 className="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2.5 font-sans flex items-center justify-between">
+            <span>Hardware Peripheral Register Map</span>
+            <span className={`text-[10px] px-2 py-0.5 rounded-full border font-mono ${
+              hardwareConnected && selectedBoard
+                ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
+                : 'text-slate-400 bg-white/[0.04] border-white/[0.08]'
+            }`}>
+              {hardwareConnected && selectedBoard ? '100% CANONICAL MATCH' : 'STANDBY · AWAITING USB'}
+            </span>
+          </h3>
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+            <SpecRow label="Flash Memory" value={hardwareConnected && selectedBoard ? `${selectedBoard.flash_bytes / 1024} KB` : '—'} />
+            <SpecRow label="Static RAM" value={hardwareConnected && selectedBoard ? `${selectedBoard.sram_bytes / 1024} KB` : '—'} />
+            <SpecRow label="EEPROM" value={hardwareConnected && selectedBoard ? `${selectedBoard.eeprom_bytes / 1024} KB` : '—'} />
+            <SpecRow label="Digital GPIO" value={hardwareConnected && selectedBoard ? `${selectedBoard.gpio_count} pins` : '—'} />
+            <SpecRow label="Analog ADC" value={hardwareConnected && selectedBoard ? `${selectedBoard.adc_channels} ch` : '—'} />
+            <SpecRow label="Hardware UART" value={hardwareConnected && selectedBoard ? `${selectedBoard.uart_count} port` : '—'} />
           </div>
-        )}
+        </div>
 
         {/* Quick Actions Card */}
         <div className="bg-[#0e121b]/80 backdrop-blur-md border border-white/[0.08] rounded-2xl p-3.5 sm:p-4 shadow-sm flex flex-col justify-between">

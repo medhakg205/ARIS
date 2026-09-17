@@ -93,10 +93,15 @@ export const Navbar: React.FC<NavbarProps> = ({
       {/* Status Indicators - Tesla Style Minimalist Badges */}
       <div className="flex items-center gap-2.5 shrink-0">
         {/* Board Profile */}
-        {boardName && (
-          <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/[0.04] border border-white/[0.06] text-slate-300 text-xs">
+        {hardwareConnected && boardName ? (
+          <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs">
+            <span className="text-[10px] text-emerald-500 uppercase font-mono">Target</span>
+            <span className="font-semibold text-emerald-200">{boardName}</span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/[0.03] border border-white/[0.06] text-slate-400 text-xs">
             <span className="text-[10px] text-slate-500 uppercase font-mono">Target</span>
-            <span className="font-medium text-slate-200">{boardName}</span>
+            <span className="font-medium text-slate-400">No Device</span>
           </div>
         )}
 
