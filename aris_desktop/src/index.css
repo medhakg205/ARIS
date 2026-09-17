@@ -4,7 +4,7 @@
 
 @layer base {
   body {
-    @apply bg-[#181b1f] text-slate-200 font-sans antialiased;
+    @apply bg-[#12151a] text-slate-200 font-sans antialiased;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -13,7 +13,7 @@
 
   h1, h2, h3, h4, .font-heading, .font-samsung {
     font-family: 'Samsung Sharp Sans', 'Plus Jakarta Sans', sans-serif;
-    letter-spacing: -0.015em;
+    letter-spacing: -0.005em;
     line-height: 1.25;
   }
 

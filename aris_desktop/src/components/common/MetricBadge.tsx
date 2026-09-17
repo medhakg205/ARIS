@@ -9,10 +9,10 @@ import React from 'react';
 import type { MetricClassification } from '../../types';
 
 const CLASSIFICATION_STYLES: Record<MetricClassification, string> = {
-  MEASURED: 'bg-white/[0.04] text-slate-300 border-white/[0.1]',
-  ESTIMATED: 'bg-white/[0.04] text-slate-300 border-white/[0.1]',
-  DERIVED: 'bg-white/[0.04] text-slate-300 border-white/[0.1]',
-  PREDICTED: 'bg-white/[0.04] text-slate-300 border-white/[0.1]',
+  MEASURED: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
+  ESTIMATED: 'bg-amber-500/10 text-amber-400 border-amber-500/30',
+  DERIVED: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30',
+  PREDICTED: 'bg-purple-500/10 text-purple-400 border-purple-500/30',
 };
 
 interface MetricBadgeProps {
@@ -54,12 +54,12 @@ export const MetricBadge: React.FC<MetricBadgeProps> = ({
   }
 
   return (
-    <div className="bg-[#22272e] border border-white/[0.07] hover:border-white/[0.14] transition-all duration-200 rounded-xl p-3 sm:p-3.5 flex flex-col justify-between group shadow-sm">
+    <div className="bg-[#1a1e26] border border-white/[0.08] hover:border-white/[0.16] transition-all duration-200 rounded-xl p-3 sm:p-3.5 flex flex-col justify-between group shadow-sm">
       <div className="flex items-center justify-between gap-2">
         <span className="text-[10.5px] font-sans font-medium text-slate-400 tracking-wider uppercase">
           {label}
         </span>
-        <span className={`text-[9.5px] font-sans font-normal px-2 py-0.5 rounded-full border ${cls}`}>
+        <span className={`text-[9.5px] font-sans font-semibold px-2 py-0.5 rounded-full border ${cls}`}>
           {classification}
         </span>
       </div>

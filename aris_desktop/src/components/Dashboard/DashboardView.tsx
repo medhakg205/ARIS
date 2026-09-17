@@ -61,7 +61,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   return (
     <div className="flex flex-col h-full overflow-auto p-4 sm:p-5 gap-3.5 max-w-7xl mx-auto w-full">
       {/* Target Microcontroller & Core Specs Hero Card */}
-      <div className="bg-[#22272e] border border-white/[0.08] rounded-xl p-4 sm:p-5 shadow-sm relative overflow-hidden shrink-0">
+      <div className="bg-[#1a1e26] border border-white/[0.08] rounded-xl p-4 sm:p-5 shadow-sm relative overflow-hidden shrink-0">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 relative z-10">
           <div>
             <div className="flex items-center gap-2 mb-1.5 flex-wrap">
@@ -69,8 +69,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 {hardwareConnected ? 'Active Target' : 'Hardware Target'}
               </span>
               {hardwareConnected && selectedBoard ? (
-                <span className="text-[10px] font-medium text-[#00878a] bg-[#00878a]/10 px-2 py-0.5 rounded border border-[#00878a]/20 flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#00878a]" />
+                <span className="text-[10px] font-medium text-emerald-300 bg-emerald-500/10 px-2.5 py-0.5 rounded border border-emerald-500/25 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400/50 animate-pulse" />
                   USB Detected
                 </span>
               ) : (
@@ -162,9 +162,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <p className="text-[11px] text-slate-400 font-sans leading-normal">Empirical hardware measurements with veracity classification.</p>
           </div>
           <div className="flex items-center gap-3 text-[10.5px] font-sans text-slate-400">
-            <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-slate-300" /> Measured</span>
-            <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-slate-400" /> Estimated</span>
-            <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-slate-500" /> Derived</span>
+            <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400/50" /> Measured</span>
+            <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-amber-400 shadow-sm shadow-amber-400/50" /> Estimated</span>
+            <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-sm shadow-cyan-400/50" /> Derived</span>
           </div>
         </div>
 
@@ -189,7 +189,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       {/* Hardware Specifications & Quick Navigation */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5 shrink-0">
         {/* Hardware Peripheral Details */}
-        <div className="lg:col-span-2 bg-[#22272e] border border-white/[0.08] rounded-xl p-3.5 sm:p-4 shadow-sm">
+        <div className="lg:col-span-2 bg-[#1a1e26] border border-white/[0.08] rounded-xl p-3.5 sm:p-4 shadow-sm">
           <h3 className="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2.5 font-sans flex items-center justify-between">
             <span>Hardware Peripheral Register Map</span>
             <span className={`text-[10px] px-2 py-0.5 rounded border font-mono ${
@@ -211,7 +211,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
 
         {/* Quick Actions Card */}
-        <div className="bg-[#22272e] border border-white/[0.08] rounded-xl p-3.5 sm:p-4 shadow-sm flex flex-col justify-between">
+        <div className="bg-[#1a1e26] border border-white/[0.08] rounded-xl p-3.5 sm:p-4 shadow-sm flex flex-col justify-between">
           <h3 className="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2 font-sans">
             Investigation Suite
           </h3>

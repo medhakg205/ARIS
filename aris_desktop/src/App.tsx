@@ -57,7 +57,7 @@ export const App: React.FC = () => {
   }, []);
 
   return (
-    <div className="flex flex-col h-screen w-screen bg-[#181b1f] text-slate-200 overflow-hidden select-none">
+    <div className="flex flex-col h-screen w-screen bg-[#12151a] text-slate-200 overflow-hidden select-none">
       {/* Navigation Header */}
       <Navbar
         activeTab={activeTab}
@@ -78,7 +78,7 @@ export const App: React.FC = () => {
       )}
 
       {/* Main Content */}
-      <main className="flex-1 overflow-hidden bg-[#181b1f]">
+      <main className="flex-1 overflow-hidden bg-[#12151a]">
         {activeTab === 'dashboard' && (
           <DashboardView
             health={aris.health}
