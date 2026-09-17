@@ -23,10 +23,10 @@ interface LiveMonitorViewProps {
 }
 
 const CHART_METRICS = [
-  { key: 'loop_time', label: 'Loop Time (ms)', color: '#22d3ee', classification: 'MEASURED' as const },
-  { key: 'cpu_load', label: 'CPU Load (%)', color: '#f59e0b', classification: 'ESTIMATED' as const },
-  { key: 'sram_free', label: 'SRAM Free (B)', color: '#10b981', classification: 'MEASURED' as const },
-  { key: 'interrupt_rate', label: 'IRQ Rate (Hz)', color: '#8b5cf6', classification: 'DERIVED' as const },
+  { key: 'loop_time', label: 'Loop Time (ms)', color: '#00878a', classification: 'MEASURED' as const },
+  { key: 'cpu_load', label: 'CPU Load (%)', color: '#56d4dd', classification: 'ESTIMATED' as const },
+  { key: 'sram_free', label: 'SRAM Free (B)', color: '#41b3a3', classification: 'MEASURED' as const },
+  { key: 'interrupt_rate', label: 'IRQ Rate (Hz)', color: '#88a0b8', classification: 'DERIVED' as const },
 ];
 
 const LIVE_METRICS = [
@@ -78,21 +78,20 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
   return (
     <div className="flex flex-col h-full overflow-auto p-4 sm:p-5 gap-3.5 max-w-7xl mx-auto w-full">
       {/* Realtime Telemetry Telemetry Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-[#0d111a]/80 backdrop-blur-xl border border-white/[0.08] rounded-xl px-4 py-2.5 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-[#22272e] border border-white/[0.08] rounded-xl px-4 py-2.5 shadow-sm">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
             {wsConnected ? (
               <>
                 <div className="relative flex items-center justify-center">
-                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
-                  <div className="absolute w-4 h-4 rounded-full bg-emerald-400/30 animate-ping pointer-events-none" />
+                  <div className="w-2 h-2 rounded-full bg-[#00878a]" />
                 </div>
-                <span className="text-xs font-semibold text-emerald-400 font-sans">Telemetry Stream Active</span>
+                <span className="text-xs font-medium text-slate-200 font-sans">Telemetry Stream Active</span>
               </>
             ) : (
               <>
-                <div className="w-2.5 h-2.5 rounded-full bg-rose-400" />
-                <span className="text-xs font-semibold text-rose-400 font-sans">Connecting to Telemetry…</span>
+                <div className="w-2 h-2 rounded-full bg-rose-400" />
+                <span className="text-xs font-medium text-rose-400 font-sans">Connecting to Telemetry…</span>
               </>
             )}
           </div>
@@ -103,7 +102,7 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
           </span>
 
           <div className="w-px h-4 bg-white/[0.08]" />
-          <span className="text-xs px-2.5 py-0.5 rounded-full bg-white/[0.04] border border-white/[0.06] text-cyan-400 font-mono font-medium">
+          <span className="text-xs px-2 py-0.5 rounded bg-white/[0.04] border border-white/[0.06] text-slate-300 font-mono font-medium">
             {activeRun.status}
           </span>
         </div>
@@ -111,7 +110,7 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
         <div className="flex items-center gap-3">
           <span className="text-xs font-mono text-slate-400">Frame #{seqCount}</span>
           {isDemo && (
-            <span className="text-[10px] font-medium px-2 py-0.5 border border-amber-500/30 bg-amber-500/10 text-amber-400 rounded-full">
+            <span className="text-[10px] font-medium px-2 py-0.5 border border-white/[0.1] bg-white/[0.04] text-slate-400 rounded">
               SYNTHETIC / DEMO
             </span>
           )}
@@ -129,14 +128,10 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
           const latest = latestSamples[key];
 
           return (
-            <div key={key} className="bg-[#0d111a]/80 backdrop-blur-xl border border-white/[0.08] hover:border-white/[0.16] transition-all duration-200 rounded-3xl p-5 shadow-sm">
+            <div key={key} className="bg-[#22272e] border border-white/[0.08] rounded-xl p-4 shadow-sm">
               <div className="flex items-center justify-between mb-3">
                 <span className="text-xs font-sans font-semibold text-slate-300 tracking-wider uppercase">{label}</span>
-                <span className={`text-[10px] font-sans font-medium px-2 py-0.5 rounded-full border ${
-                  classification === 'MEASURED' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' :
-                  classification === 'ESTIMATED' ? 'bg-amber-500/10 text-amber-400 border-amber-500/30' :
-                  'bg-cyan-500/10 text-cyan-400 border-cyan-500/30'
-                }`}>
+                <span className="text-[10px] font-sans font-medium px-2 py-0.5 rounded border border-white/[0.08] bg-white/[0.04] text-slate-300">
                   {classification}
                 </span>
               </div>

@@ -9,10 +9,10 @@ import React from 'react';
 import type { MetricClassification } from '../../types';
 
 const CLASSIFICATION_STYLES: Record<MetricClassification, string> = {
-  MEASURED: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
-  ESTIMATED: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
-  DERIVED: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
-  PREDICTED: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
+  MEASURED: 'bg-white/[0.04] text-slate-300 border-white/[0.1]',
+  ESTIMATED: 'bg-white/[0.04] text-slate-300 border-white/[0.1]',
+  DERIVED: 'bg-white/[0.04] text-slate-300 border-white/[0.1]',
+  PREDICTED: 'bg-white/[0.04] text-slate-300 border-white/[0.1]',
 };
 
 interface MetricBadgeProps {
@@ -54,12 +54,12 @@ export const MetricBadge: React.FC<MetricBadgeProps> = ({
   }
 
   return (
-    <div className="bg-[#0e121b]/90 backdrop-blur-md border border-white/[0.08] hover:border-white/[0.18] transition-all duration-200 rounded-xl p-3 sm:p-3.5 flex flex-col justify-between group shadow-sm hover:shadow-md hover:shadow-blue-500/5">
+    <div className="bg-[#22272e] border border-white/[0.07] hover:border-white/[0.14] transition-all duration-200 rounded-xl p-3 sm:p-3.5 flex flex-col justify-between group shadow-sm">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[10.5px] font-sans font-semibold text-slate-400 tracking-wider uppercase">
+        <span className="text-[10.5px] font-sans font-medium text-slate-400 tracking-wider uppercase">
           {label}
         </span>
-        <span className={`text-[9.5px] font-sans font-medium px-2 py-0.5 rounded-full border ${cls}`}>
+        <span className={`text-[9.5px] font-sans font-normal px-2 py-0.5 rounded-full border ${cls}`}>
           {classification}
         </span>
       </div>

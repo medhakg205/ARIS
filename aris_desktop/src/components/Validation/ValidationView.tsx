@@ -23,7 +23,7 @@ interface ValidationViewProps {
 
 const VALIDATION_BADGE: Record<ValidationStatus, string> = {
   VALIDATED: 'text-emerald-400 border-emerald-500/50 bg-emerald-500/10',
-  PARTIALLY_VALIDATED: 'text-cyan-400 border-cyan-500/50 bg-cyan-500/10',
+  PARTIALLY_VALIDATED: 'text-[#00878a] border-[#00878a]/50 bg-[#00878a]/10',
   NO_SIGNIFICANT_CHANGE: 'text-slate-400 border-slate-600 bg-slate-800/40',
   REGRESSION: 'text-red-400 border-red-500/50 bg-red-500/10',
   REJECTED: 'text-red-500 border-red-600 bg-red-900/20',
@@ -109,7 +109,7 @@ export const ValidationView: React.FC<ValidationViewProps> = ({
       </div>
 
       {/* Run IDs */}
-      <div className="flex items-center gap-6 bg-slate-900/60 border border-slate-800 rounded px-4 py-3">
+      <div className="flex items-center gap-6 bg-[#22272e] border border-white/[0.08] rounded-xl px-4 py-3">
         <div>
           <p className="text-[9px] font-mono text-slate-500 uppercase tracking-widest">
             Baseline Run
@@ -130,7 +130,7 @@ export const ValidationView: React.FC<ValidationViewProps> = ({
       </div>
 
       {/* Reason */}
-      <div className="bg-slate-900/40 border border-slate-800 rounded p-3">
+      <div className="bg-[#22272e] border border-white/[0.08] rounded-xl p-3">
         <p className="text-[9px] font-mono text-slate-500 uppercase tracking-widest mb-1">
           Validation Rationale
         </p>
@@ -138,7 +138,7 @@ export const ValidationView: React.FC<ValidationViewProps> = ({
       </div>
 
       {/* Metric comparison table */}
-      <div className="bg-slate-900/60 border border-slate-800 rounded overflow-hidden">
+      <div className="bg-[#22272e] border border-white/[0.08] rounded-xl overflow-hidden">
         <table className="w-full">
           <thead>
             <tr className="border-b border-slate-800">
@@ -235,7 +235,7 @@ export const ValidationView: React.FC<ValidationViewProps> = ({
 
       {/* Prediction vs Reality */}
       {result.prediction_accuracy && (
-        <div className="bg-slate-900/60 border border-slate-800 rounded p-4 space-y-3">
+        <div className="bg-[#22272e] border border-white/[0.08] rounded-xl p-4 space-y-3">
           <h3 className="text-[9px] font-mono text-slate-500 uppercase tracking-widest">
             Prediction vs Reality
           </h3>
@@ -245,7 +245,7 @@ export const ValidationView: React.FC<ValidationViewProps> = ({
               <p className="text-[9px] font-mono text-slate-500">
                 Prediction Accuracy Score
               </p>
-              <p className="text-xl font-mono font-bold text-cyan-400 tabular-nums">
+              <p className="text-xl font-mono font-bold text-[#00878a] tabular-nums">
                 {(
                   result.prediction_accuracy.prediction_accuracy_score * 100
                 ).toFixed(1)}
@@ -279,14 +279,14 @@ export const ValidationView: React.FC<ValidationViewProps> = ({
           ).map(([metric, cmp]) => (
             <div
               key={metric}
-              className="flex items-center gap-4 bg-slate-800/30 rounded px-3 py-2"
+              className="flex items-center gap-4 bg-white/[0.02] border border-white/[0.04] rounded px-3 py-2"
             >
               <span className="text-xs font-mono text-slate-400 w-24">
                 {metric}
               </span>
               <div className="flex-1 grid grid-cols-4 gap-4 text-[10px] font-mono">
                 <div>
-                  <span className="text-purple-400">PREDICTED: </span>
+                  <span className="text-slate-400">PREDICTED: </span>
                   <span className="text-slate-300 tabular-nums">
                     {cmp.predicted.toFixed(2)} {cmp.unit}
                   </span>

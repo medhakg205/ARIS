@@ -22,13 +22,13 @@ interface HistoryViewProps {
 
 const STATUS_COLOR: Record<string, string> = {
   VALIDATED: 'text-emerald-400',
-  PARTIALLY_VALIDATED: 'text-cyan-400',
+  PARTIALLY_VALIDATED: 'text-[#00878a]',
   NO_SIGNIFICANT_CHANGE: 'text-slate-400',
   REGRESSION: 'text-red-400',
   REJECTED: 'text-red-500',
   INCONCLUSIVE: 'text-amber-400',
   COMPLETED: 'text-emerald-400',
-  RUNNING: 'text-cyan-400',
+  RUNNING: 'text-[#00878a]',
   CREATED: 'text-slate-400',
   FAILED: 'text-red-400',
 };
@@ -112,8 +112,8 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
           </div>
         ) : (
           <table className="w-full">
-            <thead className="sticky top-0 bg-[#0d121f]">
-              <tr className="border-b border-slate-800">
+            <thead className="sticky top-0 bg-[#1e2229]">
+              <tr className="border-b border-white/[0.08]">
                 {[
                   'Date',
                   'Experiment',
@@ -125,7 +125,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
                 ].map((h) => (
                   <th
                     key={h}
-                    className="text-left text-[9px] font-mono text-slate-500 uppercase tracking-widest px-4 py-2.5"
+                    className="text-left text-[9px] font-mono text-slate-400 uppercase tracking-widest px-4 py-2.5"
                   >
                     {h}
                   </th>
@@ -142,7 +142,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
                 return (
                   <tr
                     key={exp.experiment_id}
-                    className="border-b border-slate-800/40 hover:bg-slate-800/20 transition-colors"
+                    className="border-b border-white/[0.05] hover:bg-white/[0.03] transition-colors"
                   >
                     <td className="px-4 py-2.5 text-[10px] font-mono text-slate-500 whitespace-nowrap">
                       {new Date(exp.created_at).toLocaleDateString()}{' '}
@@ -192,7 +192,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
                           onClick={() =>
                             onLoadValidation(exp.experiment_id)
                           }
-                          className="text-[9px] font-mono text-cyan-500 hover:text-cyan-400"
+                          className="text-[9px] font-mono text-[#00878a] hover:text-[#00979d]"
                         >
                           Load
                         </button>
@@ -209,7 +209,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
                           onClick={() =>
                             onNavigateValidation(exp.experiment_id)
                           }
-                          className="text-[9px] font-mono text-cyan-400 hover:text-cyan-300"
+                          className="text-[9px] font-mono text-[#00878a] hover:text-[#00979d]"
                         >
                           Details →
                         </button>

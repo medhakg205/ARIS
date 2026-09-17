@@ -9,17 +9,19 @@ export default {
     extend: {
       colors: {
         aris: {
-          bg: '#080a10',
-          card: '#0e121b',
-          cardHover: '#141a26',
+          bg: '#181b1f',
+          surface: '#1e2229',
+          card: '#22272e',
+          cardHover: '#282e38',
           border: 'rgba(255, 255, 255, 0.08)',
           borderHover: 'rgba(255, 255, 255, 0.16)',
-          accent: '#3b82f6',
-          glow: 'rgba(59, 130, 246, 0.15)',
-          success: '#10b981',
-          warning: '#f59e0b',
-          danger: '#f43f5e',
-          purple: '#8b5cf6',
+          accent: '#00878a',
+          accentHover: '#00979d',
+          glow: 'rgba(0, 135, 138, 0.15)',
+          success: '#00878a',
+          warning: '#e5a00d',
+          danger: '#e05252',
+          muted: '#8b949e',
         }
       },
       fontFamily: {

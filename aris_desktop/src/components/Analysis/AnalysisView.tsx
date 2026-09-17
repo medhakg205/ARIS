@@ -169,7 +169,7 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
                       <button
                         onClick={() => onGenerateCandidate(finding)}
                         disabled={loading.ai}
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono bg-blue-500/10 border border-blue-500/30 text-blue-400 rounded hover:bg-blue-500/20 transition-colors disabled:opacity-50"
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono bg-[#00878a]/10 border border-[#00878a]/30 text-[#00878a] rounded hover:bg-[#00878a]/20 transition-colors disabled:opacity-50"
                       >
                         <Zap className="w-3.5 h-3.5" />
                         {loading.ai ? 'Generating…' : 'Generate Optimization Candidate'}

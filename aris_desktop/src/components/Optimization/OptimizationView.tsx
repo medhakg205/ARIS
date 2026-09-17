@@ -31,7 +31,7 @@ const STATUS_STYLES: Record<string, string> = {
   PROPOSED: 'text-slate-400 border-slate-600',
   APPROVED: 'text-emerald-400 border-emerald-600',
   BUILDING: 'text-amber-400 border-amber-600',
-  TESTING: 'text-cyan-400 border-cyan-600',
+  TESTING: 'text-[#00878a] border-[#00878a]/60',
   VALIDATED: 'text-emerald-400 border-emerald-500',
   REJECTED: 'text-red-400 border-red-600',
   ROLLED_BACK: 'text-orange-400 border-orange-600',
@@ -102,7 +102,7 @@ export const OptimizationView: React.FC<OptimizationViewProps> = ({
               key={opt.optimization_id}
               onClick={() => { setSelectedIdx(idx); setConfirmAction(null); }}
               className={`w-full text-left px-4 py-3 border-b border-slate-800/50 transition-colors hover:bg-slate-800/30 ${
-                idx === selectedIdx ? 'bg-slate-800/50 border-l-2 border-l-blue-500' : ''
+                idx === selectedIdx ? 'bg-slate-800/50 border-l-2 border-l-[#00878a]' : ''
               }`}
             >
               <div className="flex items-center gap-2 mb-1">
@@ -192,10 +192,10 @@ export const OptimizationView: React.FC<OptimizationViewProps> = ({
                       }
                     }}
                     disabled={isSavingIDE}
-                    className="flex items-center gap-1.5 px-2.5 py-0.5 text-[10px] font-mono bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/40 rounded transition-colors disabled:opacity-50"
+                    className="flex items-center gap-1.5 px-2.5 py-0.5 text-[10px] font-mono bg-[#00878a]/15 hover:bg-[#00878a]/25 text-[#00878a] border border-[#00878a]/30 rounded transition-colors disabled:opacity-50"
                     title={`Save directly to ${activeIDESketch.name} with .bak backup`}
                   >
-                    {ideSaveSuccess ? <FileCheck className="w-3 h-3 text-emerald-400" /> : <Save className="w-3 h-3 text-blue-400" />}
+                    {ideSaveSuccess ? <FileCheck className="w-3 h-3 text-emerald-400" /> : <Save className="w-3 h-3 text-[#00878a]" />}
                     {isSavingIDE ? 'Writing…' : ideSaveSuccess ? 'Saved to IDE!' : 'Save to .ino File'}
                   </button>
                 )}
@@ -248,7 +248,7 @@ export const OptimizationView: React.FC<OptimizationViewProps> = ({
           <div className="flex items-center gap-3">
             <div className="flex-1 h-2 bg-slate-800 rounded-full max-w-xs">
               <div
-                className="h-full bg-blue-500 rounded-full"
+                className="h-full bg-[#00878a] rounded-full"
                 style={{ width: `${candidate.confidence * 100}%` }}
               />
             </div>

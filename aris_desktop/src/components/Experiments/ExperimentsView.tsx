@@ -98,7 +98,7 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
         return (
           <div
             key={exp.experiment_id}
-            className="bg-slate-900/60 border border-slate-800 rounded p-4 space-y-4"
+            className="bg-[#22272e] border border-white/[0.08] rounded-xl p-4 space-y-4"
           >
             {/* Header */}
             <div className="flex items-start justify-between">
@@ -143,10 +143,10 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
                         isDone
                           ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
                           : isActive
-                          ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/40 animate-pulse'
+                          ? 'bg-[#00878a]/15 text-[#00878a] border border-[#00878a]/40 animate-pulse'
                           : isFail
                           ? 'bg-red-500/10 text-red-400 border border-red-500/30'
-                          : 'bg-slate-800/30 text-slate-600 border border-slate-800'
+                          : 'bg-white/[0.02] text-slate-500 border border-white/[0.06]'
                       }`}
                       title={STEP_DESCRIPTIONS[step]}
                     >
@@ -181,7 +181,7 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
 
             {/* Optimization info */}
             {opt && (
-              <div className="bg-slate-800/30 rounded p-3 text-xs font-mono">
+              <div className="bg-white/[0.03] border border-white/[0.05] rounded p-3 text-xs font-mono">
                 <span className="text-slate-500">Optimization: </span>
                 <span className="text-slate-300">{opt.title}</span>
                 <span className="text-slate-500 ml-3">
@@ -205,7 +205,7 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
                   onClick={() =>
                     onNavigateValidation(exp.experiment_id)
                   }
-                  className="ml-auto text-[10px] font-mono text-cyan-400 hover:text-cyan-300 transition-colors px-2 py-1 border border-cyan-500/30 rounded"
+                  className="ml-auto text-[10px] font-mono text-[#00878a] hover:text-[#00979d] transition-colors px-2 py-1 border border-[#00878a]/30 rounded bg-[#00878a]/5 hover:bg-[#00878a]/10"
                 >
                   View Validation Results →
                 </button>

@@ -115,8 +115,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               onClick={() => onSelectBoard(board)}
               className={`text-left p-4 rounded-2xl border transition-all duration-200 ${
                 selectedBoard?.board_id === board.board_id
-                  ? 'border-cyan-500/50 bg-cyan-500/10 shadow-lg shadow-cyan-500/5 ring-1 ring-cyan-500/30'
-                  : 'border-white/[0.08] bg-[#0d111a]/60 hover:border-white/[0.16] hover:bg-[#131926]/70'
+                  ? 'border-[#00878a]/60 bg-[#00878a]/10 shadow-lg shadow-[#00878a]/5 ring-1 ring-[#00878a]/30'
+                  : 'border-white/[0.08] bg-[#22272e] hover:border-white/[0.16] hover:bg-[#282e38]'
               }`}
             >
               <div className="flex items-center justify-between">
@@ -124,7 +124,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   {board.display_name}
                 </p>
                 {selectedBoard?.board_id === board.board_id && (
-                  <span className="w-2 h-2 rounded-full bg-cyan-400 shadow-sm shadow-cyan-400" />
+                  <span className="w-2 h-2 rounded-full bg-[#00878a] shadow-sm shadow-[#00878a]" />
                 )}
               </div>
               <p className="text-xs text-slate-400 font-sans mt-1">
@@ -141,21 +141,21 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
       {/* Backend & Hardware Link Section */}
       <Section label="Local Service &amp; Communication Bus">
-        <div className="bg-[#0d111a]/80 backdrop-blur-xl border border-white/[0.08] rounded-3xl p-5 space-y-4">
+        <div className="bg-[#22272e] border border-white/[0.08] rounded-2xl p-5 space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="p-3.5 rounded-2xl bg-white/[0.02] border border-white/[0.04]">
+            <div className="p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.04]">
               <span className="text-[11px] font-sans uppercase tracking-wider text-slate-400">REST API Gateway</span>
               <div className="flex items-center gap-2 mt-1">
                 <span className="text-xs font-mono text-slate-200">http://127.0.0.1:8765</span>
-                <span className={`w-2 h-2 rounded-full ${backendOnline ? 'bg-emerald-400' : 'bg-rose-500'}`} />
+                <span className={`w-2 h-2 rounded-full ${backendOnline ? 'bg-[#00878a]' : 'bg-rose-500'}`} />
               </div>
             </div>
 
-            <div className="p-3.5 rounded-2xl bg-white/[0.02] border border-white/[0.04]">
+            <div className="p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.04]">
               <span className="text-[11px] font-sans uppercase tracking-wider text-slate-400">WebSocket Socket</span>
               <div className="flex items-center gap-2 mt-1">
                 <span className="text-xs font-mono text-slate-200">ws://127.0.0.1:8765/ws/telemetry</span>
-                <span className={`w-2 h-2 rounded-full ${backendOnline ? 'bg-cyan-400' : 'bg-slate-600'}`} />
+                <span className={`w-2 h-2 rounded-full ${backendOnline ? 'bg-[#00878a]' : 'bg-slate-600'}`} />
               </div>
             </div>
           </div>
@@ -163,7 +163,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           <div className="flex items-center gap-3">
             <button
               onClick={handleProbe}
-              className="flex items-center gap-2 px-4 py-2 text-xs font-medium bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.1] text-white rounded-full transition-colors shadow-sm"
+              className="flex items-center gap-2 px-4 py-2 text-xs font-medium bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.1] text-white rounded-lg transition-colors shadow-sm"
             >
               <RefreshCw className="w-3.5 h-3.5" />
               Verify Link Health
@@ -180,7 +180,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
       {/* Physical Hardware Serial Port Diagnostics */}
       <Section label="Physical Hardware Serial Interface">
-        <div className="bg-[#0d111a]/80 backdrop-blur-xl border border-white/[0.08] rounded-3xl p-5 space-y-4">
+        <div className="bg-[#22272e] border border-white/[0.08] rounded-2xl p-5 space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="text-xs font-sans text-slate-400 block mb-1.5">Detected COM / TTY Port</label>
@@ -188,11 +188,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 <select
                   value={selectedPort}
                   onChange={(e) => setSelectedPort(e.target.value)}
-                  className="bg-white/[0.04] border border-white/[0.1] rounded-xl px-3 py-2 text-xs font-mono text-slate-200 outline-none flex-1 focus:border-cyan-500/50"
+                  className="bg-[#1e2229] border border-white/[0.1] rounded-xl px-3 py-2 text-xs font-mono text-slate-200 outline-none flex-1 focus:border-[#00878a]"
                 >
-                  <option value="" className="bg-[#0d111a]">Select Port…</option>
+                  <option value="" className="bg-[#1e2229]">Select Port…</option>
                   {ports.map((p) => (
-                    <option key={p} value={p} className="bg-[#0d111a]">{p}</option>
+                    <option key={p} value={p} className="bg-[#1e2229]">{p}</option>
                   ))}
                 </select>
                 <button
@@ -210,10 +210,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <select
                 value={baudRate}
                 onChange={(e) => setBaudRate(Number(e.target.value))}
-                className="w-full bg-white/[0.04] border border-white/[0.1] rounded-xl px-3 py-2 text-xs font-mono text-slate-200 outline-none focus:border-cyan-500/50"
+                className="w-full bg-[#1e2229] border border-white/[0.1] rounded-xl px-3 py-2 text-xs font-mono text-slate-200 outline-none focus:border-[#00878a]"
               >
-                <option value={115200} className="bg-[#0d111a]">115200 baud (ARIS Default)</option>
-                <option value={9600} className="bg-[#0d111a]">9600 baud</option>
+                <option value={115200} className="bg-[#1e2229]">115200 baud (ARIS Default)</option>
+                <option value={9600} className="bg-[#1e2229]">9600 baud</option>
               </select>
             </div>
           </div>
@@ -222,7 +222,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             {hardwareConnected ? (
               <button
                 onClick={onDisconnect}
-                className="px-4 py-2 text-xs font-semibold bg-rose-500/15 border border-rose-500/30 text-rose-400 rounded-full hover:bg-rose-500/25 transition-colors"
+                className="px-4 py-2 text-xs font-semibold bg-rose-500/15 border border-rose-500/30 text-rose-400 rounded-lg hover:bg-rose-500/25 transition-colors"
               >
                 Disconnect Target
               </button>
@@ -230,14 +230,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <button
                 onClick={handleConnect}
                 disabled={!selectedPort}
-                className="px-4 py-2 text-xs font-semibold bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 rounded-full hover:bg-emerald-500/25 transition-colors disabled:opacity-40"
+                className="px-4 py-2 text-xs font-semibold bg-[#00878a]/20 border border-[#00878a]/40 text-[#00878a] rounded-lg hover:bg-[#00878a]/30 transition-colors disabled:opacity-40"
               >
                 Connect Target
               </button>
             )}
             <div className="flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${hardwareConnected ? 'bg-emerald-400' : 'bg-slate-600'}`} />
-              <span className={`text-xs font-sans font-medium ${hardwareConnected ? 'text-emerald-400' : 'text-slate-400'}`}>
+              <div className={`w-2 h-2 rounded-full ${hardwareConnected ? 'bg-[#00878a]' : 'bg-slate-600'}`} />
+              <span className={`text-xs font-sans font-medium ${hardwareConnected ? 'text-[#00878a]' : 'text-slate-400'}`}>
                 {hardwareConnected ? 'Physical Hardware Connected' : 'Disconnected'}
               </span>
             </div>
@@ -247,20 +247,20 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
       {/* AI Providers */}
       <Section label="Neural Reasoning &amp; Synthesis Providers">
-        <div className="bg-[#0d111a]/80 backdrop-blur-xl border border-white/[0.08] rounded-3xl p-5 space-y-3">
+        <div className="bg-[#22272e] border border-white/[0.08] rounded-2xl p-5 space-y-3">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {providers.map((prov) => (
               <div
                 key={prov.provider_id}
-                className="flex items-center justify-between p-3.5 rounded-2xl bg-white/[0.02] border border-white/[0.04]"
+                className="flex items-center justify-between p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.04]"
               >
                 <div className="flex items-center gap-2.5">
-                  <div className={`w-2 h-2 rounded-full ${prov.available ? 'bg-emerald-400' : 'bg-slate-600'}`} />
+                  <div className={`w-2 h-2 rounded-full ${prov.available ? 'bg-[#00878a]' : 'bg-slate-600'}`} />
                   <span className="text-xs font-medium text-slate-200 font-sans">{prov.display_name}</span>
                 </div>
                 <span className={`text-[10px] font-sans px-2.5 py-0.5 rounded-full border ${
                   prov.available
-                    ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10'
+                    ? 'text-[#00878a] border-[#00878a]/30 bg-[#00878a]/10'
                     : 'text-slate-500 border-white/[0.08]'
                 }`}>
                   {prov.available ? 'Online' : 'Not Configured'}
