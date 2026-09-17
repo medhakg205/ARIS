@@ -2,7 +2,7 @@
 // ARIS — Navigation Bar
 // ============================================================
 import React from 'react';
-import { Cpu, Wifi, WifiOff } from 'lucide-react';
+import { Cpu, HelpCircle } from 'lucide-react';
 import { DemoBanner } from './common/DemoBanner';
 
 export type NavTab =
@@ -34,6 +34,7 @@ interface NavbarProps {
   backendOnline: boolean;
   isDemo: boolean;
   boardName?: string;
+  onOpenInfo: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -44,18 +45,19 @@ export const Navbar: React.FC<NavbarProps> = ({
   backendOnline,
   isDemo,
   boardName,
+  onOpenInfo,
 }) => {
   return (
-    <header className="h-12 bg-[#07090e]/95 backdrop-blur-xl border-b border-white/[0.06] flex items-center px-4 gap-4 shrink-0 select-none z-30">
+    <header className="h-12 bg-[#080a10]/95 backdrop-blur-xl border-b border-white/[0.06] flex items-center px-4 gap-4 shrink-0 select-none z-30">
       {/* Brand */}
       <div className="flex items-center gap-2.5 shrink-0">
-        <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-cyan-500/20 to-blue-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shadow-sm shadow-cyan-500/10">
+        <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-blue-600/20 to-indigo-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400 shadow-sm">
           <Cpu className="w-3.5 h-3.5" />
         </div>
         <div>
           <div className="flex items-center gap-1.5 leading-tight">
             <span className="text-sm font-bold tracking-wider text-white font-samsung">ARIS</span>
-            <span className="text-[10px] font-mono font-medium text-cyan-400 bg-cyan-500/10 px-1 py-0.2 rounded">v1.0</span>
+            <span className="text-[10px] font-mono font-medium text-blue-400 bg-blue-500/10 px-1 py-0.2 rounded border border-blue-500/20">v1.0</span>
           </div>
           <span className="text-[10px] text-slate-400 font-sans tracking-tight block">Embedded Intelligence</span>
         </div>
@@ -119,9 +121,19 @@ export const Navbar: React.FC<NavbarProps> = ({
               : 'text-rose-400 border-rose-500/30 bg-rose-500/10'
           }`}
         >
-          <div className={`w-1.5 h-1.5 rounded-full ${backendOnline ? 'bg-cyan-400' : 'bg-rose-400'}`} />
+          <div className={`w-1.5 h-1.5 rounded-full ${backendOnline ? 'bg-emerald-400' : 'bg-rose-400'}`} />
           <span>{backendOnline ? 'Cloud / API' : 'API Offline'}</span>
         </div>
+
+        {/* System Guide (INFO) Button */}
+        <button
+          onClick={onOpenInfo}
+          className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:text-blue-300 text-xs font-medium transition-all shadow-sm active:scale-95"
+          title="Open System Architecture & Telemetry Guide"
+        >
+          <HelpCircle className="w-3.5 h-3.5" />
+          <span>Guide (i)</span>
+        </button>
       </div>
     </header>
   );

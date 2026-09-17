@@ -18,7 +18,7 @@ const SEVERITY_STYLES: Record<FindingSeverity, string> = {
   CRITICAL: 'text-red-400 border-red-500/40 bg-red-500/10',
   HIGH: 'text-orange-400 border-orange-500/40 bg-orange-500/10',
   MEDIUM: 'text-amber-400 border-amber-500/40 bg-amber-500/10',
-  LOW: 'text-cyan-400 border-cyan-500/40 bg-cyan-500/10',
+  LOW: 'text-blue-400 border-blue-500/30 bg-blue-500/10',
   INFO: 'text-slate-400 border-slate-600 bg-slate-800/40',
 };
 
@@ -169,7 +169,7 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
                       <button
                         onClick={() => onGenerateCandidate(finding)}
                         disabled={loading.ai}
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 rounded hover:bg-cyan-500/20 transition-colors disabled:opacity-50"
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono bg-blue-500/10 border border-blue-500/30 text-blue-400 rounded hover:bg-blue-500/20 transition-colors disabled:opacity-50"
                       >
                         <Zap className="w-3.5 h-3.5" />
                         {loading.ai ? 'Generating…' : 'Generate Optimization Candidate'}

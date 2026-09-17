@@ -9,17 +9,17 @@ export default {
     extend: {
       colors: {
         aris: {
-          bg: '#07090e',
-          card: '#0d111a',
-          cardHover: '#131926',
+          bg: '#080a10',
+          card: '#0e121b',
+          cardHover: '#141a26',
           border: 'rgba(255, 255, 255, 0.08)',
           borderHover: 'rgba(255, 255, 255, 0.16)',
-          accent: '#00e5ff',
-          glow: 'rgba(0, 229, 255, 0.25)',
+          accent: '#3b82f6',
+          glow: 'rgba(59, 130, 246, 0.15)',
           success: '#10b981',
           warning: '#f59e0b',
           danger: '#f43f5e',
-          purple: '#a855f7',
+          purple: '#8b5cf6',
         }
       },
       fontFamily: {

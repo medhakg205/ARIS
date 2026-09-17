@@ -95,7 +95,7 @@ export const OptimizationView: React.FC<OptimizationViewProps> = ({
               key={opt.optimization_id}
               onClick={() => { setSelectedIdx(idx); setConfirmAction(null); }}
               className={`w-full text-left px-4 py-3 border-b border-slate-800/50 transition-colors hover:bg-slate-800/30 ${
-                idx === selectedIdx ? 'bg-slate-800/50 border-l-2 border-l-cyan-500' : ''
+                idx === selectedIdx ? 'bg-slate-800/50 border-l-2 border-l-blue-500' : ''
               }`}
             >
               <div className="flex items-center gap-2 mb-1">
@@ -193,7 +193,7 @@ export const OptimizationView: React.FC<OptimizationViewProps> = ({
           <div className="flex items-center gap-3">
             <div className="flex-1 h-2 bg-slate-800 rounded-full max-w-xs">
               <div
-                className="h-full bg-cyan-500 rounded-full"
+                className="h-full bg-blue-500 rounded-full"
                 style={{ width: `${candidate.confidence * 100}%` }}
               />
             </div>

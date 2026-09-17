@@ -9,10 +9,10 @@ import React from 'react';
 import type { MetricClassification } from '../../types';
 
 const CLASSIFICATION_STYLES: Record<MetricClassification, string> = {
-  MEASURED: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
-  ESTIMATED: 'bg-amber-500/15 text-amber-400 border-amber-500/30',
-  DERIVED: 'bg-cyan-500/15 text-cyan-400 border-cyan-500/30',
-  PREDICTED: 'bg-purple-500/15 text-purple-400 border-purple-500/30',
+  MEASURED: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+  ESTIMATED: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+  DERIVED: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+  PREDICTED: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
 };
 
 interface MetricBadgeProps {
@@ -54,7 +54,7 @@ export const MetricBadge: React.FC<MetricBadgeProps> = ({
   }
 
   return (
-    <div className="bg-[#0d111a]/85 backdrop-blur-md border border-white/[0.08] hover:border-white/[0.18] transition-all duration-200 rounded-xl p-3 sm:p-3.5 flex flex-col justify-between group shadow-sm hover:shadow-md hover:shadow-cyan-500/5">
+    <div className="bg-[#0e121b]/90 backdrop-blur-md border border-white/[0.08] hover:border-white/[0.18] transition-all duration-200 rounded-xl p-3 sm:p-3.5 flex flex-col justify-between group shadow-sm hover:shadow-md hover:shadow-blue-500/5">
       <div className="flex items-center justify-between gap-2">
         <span className="text-[10.5px] font-sans font-semibold text-slate-400 tracking-wider uppercase">
           {label}
@@ -79,7 +79,7 @@ export const MetricBadge: React.FC<MetricBadgeProps> = ({
         <div className="flex items-center gap-2 mt-2 pt-1.5 border-t border-white/[0.04]">
           <div className="flex-1 h-1 bg-white/[0.06] rounded-full overflow-hidden">
             <div
-              className="h-full bg-cyan-400/80 rounded-full transition-all duration-500"
+              className="h-full bg-blue-500/80 rounded-full transition-all duration-500"
               style={{ width: `${confidence * 100}%` }}
             />
           </div>

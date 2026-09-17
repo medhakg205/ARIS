@@ -17,11 +17,13 @@ import { ValidationView } from './components/Validation/ValidationView';
 import { HistoryView } from './components/History/HistoryView';
 import { SettingsView } from './components/Settings/SettingsView';
 import { ErrorBanner } from './components/common/ErrorBanner';
+import { SystemInfoModal } from './components/common/SystemInfoModal';
 import type { FindingRecord } from './types';
 
 export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<NavTab>('dashboard');
   const [selectedExperimentId, setSelectedExperimentId] = useState<string | null>(null);
+  const [showInfoModal, setShowInfoModal] = useState(false);
 
   const aris = useARIS();
 
@@ -65,6 +67,7 @@ export const App: React.FC = () => {
         backendOnline={aris.backendOnline}
         isDemo={aris.isDemo}
         boardName={aris.selectedBoard?.display_name}
+        onOpenInfo={() => setShowInfoModal(true)}
       />
 
       {/* Global Error Banner */}
@@ -75,7 +78,7 @@ export const App: React.FC = () => {
       )}
 
       {/* Main Content */}
-      <main className="flex-1 overflow-hidden bg-[#0a0d14]">
+      <main className="flex-1 overflow-hidden bg-[#080a10]">
         {activeTab === 'dashboard' && (
           <DashboardView
             health={aris.health}
@@ -88,6 +91,7 @@ export const App: React.FC = () => {
             onStartDemo={handleStartDemo}
             onStartHardwareRun={handleStartHardwareRun}
             onNavigate={handleNavigate}
+            onOpenInfo={() => setShowInfoModal(true)}
           />
         )}
 
@@ -193,10 +197,10 @@ export const App: React.FC = () => {
       </main>
 
       {/* Status Bar */}
-      <footer className="h-6 bg-[#0d121f] border-t border-slate-800/80 px-4 flex items-center justify-between text-[10px] font-mono text-slate-400 shrink-0">
+      <footer className="h-6 bg-[#080a10] border-t border-white/[0.06] px-4 flex items-center justify-between text-[10px] font-mono text-slate-400 shrink-0">
         <div className="flex items-center gap-4">
           <span className="flex items-center gap-1.5">
-            <span className={`w-1.5 h-1.5 rounded-full ${aris.backendOnline ? 'bg-cyan-400' : 'bg-red-500'}`} />
+            <span className={`w-1.5 h-1.5 rounded-full ${aris.backendOnline ? 'bg-emerald-400' : 'bg-red-500'}`} />
             Core: {aris.selectedBoard?.architecture?.toUpperCase() || 'AVR8'}
           </span>
           <span>Clock: {aris.selectedBoard ? aris.selectedBoard.clock_hz / 1e6 : 16} MHz</span>
@@ -212,9 +216,16 @@ export const App: React.FC = () => {
               Run: {aris.activeRun.run_id} · {aris.activeRun.status}
             </span>
           )}
-          <span className="text-cyan-400">ARIS v1.0</span>
+          <span className="text-slate-400 font-semibold">ARIS v1.0</span>
         </div>
       </footer>
+
+      {/* System Architecture & Workflow Guide Modal */}
+      <SystemInfoModal
+        isOpen={showInfoModal}
+        onClose={() => setShowInfoModal(false)}
+        onNavigate={handleNavigate}
+      />
     </div>
   );
 };
