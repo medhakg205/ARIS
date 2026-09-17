@@ -7,13 +7,15 @@
 // ============================================================
 
 import React, { useState } from 'react';
-import { CheckCircle, XCircle, Eye, AlertTriangle, Zap, ChevronLeft, ChevronRight } from 'lucide-react';
-import type { OptimizationCandidate } from '../../types';
+import { CheckCircle, XCircle, Eye, AlertTriangle, Zap, ChevronLeft, ChevronRight, Copy, Save, Check, FileCheck } from 'lucide-react';
+import type { OptimizationCandidate, IDESketchInfo } from '../../types';
 import { MetricBadge } from '../common/MetricBadge';
 
 interface OptimizationViewProps {
   optimizations: OptimizationCandidate[];
   loading: Record<string, boolean>;
+  activeIDESketch?: IDESketchInfo | null;
+  onSaveIDESketch?: (path: string, code: string) => Promise<boolean>;
   onApprove: (id: string) => Promise<OptimizationCandidate | null>;
   onReject: (id: string) => Promise<OptimizationCandidate | null>;
   onCreateExperiment: (title: string, optId: string) => Promise<unknown>;
@@ -39,12 +41,17 @@ const STATUS_STYLES: Record<string, string> = {
 export const OptimizationView: React.FC<OptimizationViewProps> = ({
   optimizations,
   loading,
+  activeIDESketch,
+  onSaveIDESketch,
   onApprove,
   onReject,
   onCreateExperiment,
 }) => {
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [confirmAction, setConfirmAction] = useState<'approve' | 'reject' | null>(null);
+  const [copiedAfter, setCopiedAfter] = useState(false);
+  const [isSavingIDE, setIsSavingIDE] = useState(false);
+  const [ideSaveSuccess, setIdeSaveSuccess] = useState(false);
 
   if (optimizations.length === 0) {
     return (
@@ -150,11 +157,59 @@ export const OptimizationView: React.FC<OptimizationViewProps> = ({
               {candidate.before_code}
             </pre>
           </Section>
-          <Section label="AFTER CODE">
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[9px] font-mono text-slate-500 uppercase tracking-widest">OPTIMIZED AFTER CODE</p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(candidate.after_code);
+                    setCopiedAfter(true);
+                    setTimeout(() => setCopiedAfter(false), 2000);
+                  }}
+                  className="flex items-center gap-1 px-2 py-0.5 text-[10px] font-mono bg-slate-800 hover:bg-slate-700 text-slate-300 rounded transition-colors"
+                  title="Copy optimized code snippet"
+                >
+                  {copiedAfter ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3 text-slate-400" />}
+                  {copiedAfter ? 'Copied' : 'Copy'}
+                </button>
+
+                {activeIDESketch && onSaveIDESketch && (
+                  <button
+                    onClick={async () => {
+                      setIsSavingIDE(true);
+                      setIdeSaveSuccess(false);
+                      // Replace snippet inside full source or use as full source
+                      let targetCode = candidate.after_code;
+                      if (activeIDESketch.source_code && candidate.before_code && activeIDESketch.source_code.includes(candidate.before_code)) {
+                        targetCode = activeIDESketch.source_code.replace(candidate.before_code, candidate.after_code);
+                      }
+                      const ok = await onSaveIDESketch(activeIDESketch.path, targetCode);
+                      setIsSavingIDE(false);
+                      if (ok) {
+                        setIdeSaveSuccess(true);
+                        setTimeout(() => setIdeSaveSuccess(false), 4000);
+                      }
+                    }}
+                    disabled={isSavingIDE}
+                    className="flex items-center gap-1.5 px-2.5 py-0.5 text-[10px] font-mono bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/40 rounded transition-colors disabled:opacity-50"
+                    title={`Save directly to ${activeIDESketch.name} with .bak backup`}
+                  >
+                    {ideSaveSuccess ? <FileCheck className="w-3 h-3 text-emerald-400" /> : <Save className="w-3 h-3 text-blue-400" />}
+                    {isSavingIDE ? 'Writing…' : ideSaveSuccess ? 'Saved to IDE!' : 'Save to .ino File'}
+                  </button>
+                )}
+              </div>
+            </div>
             <pre className="text-xs font-mono text-emerald-300 bg-emerald-900/10 border border-emerald-900/30 rounded p-3 overflow-auto leading-relaxed whitespace-pre-wrap">
               {candidate.after_code}
             </pre>
-          </Section>
+            {activeIDESketch && ideSaveSuccess && (
+              <p className="text-[10px] font-mono text-emerald-400 mt-1.5 flex items-center gap-1">
+                <Check className="w-3 h-3" /> Successfully updated <strong>{activeIDESketch.name}</strong> on disk! You can now compile/upload directly from Arduino IDE.
+              </p>
+            )}
+          </div>
         </div>
 
         {/* Why This Helps */}

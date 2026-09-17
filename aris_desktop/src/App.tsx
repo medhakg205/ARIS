@@ -114,6 +114,10 @@ export const App: React.FC = () => {
             selectedBoard={aris.selectedBoard}
             loading={aris.loading}
             lastError={aris.lastError}
+            ideSketches={aris.ideSketches}
+            activeIDESketch={aris.activeIDESketch}
+            onSyncIDESketch={aris.syncIDESketch}
+            onRefreshIDESketches={aris.refreshIDESketches}
             onUpload={aris.uploadFirmware}
             onSelectFirmware={aris.setActiveFirmware}
             onClearError={aris.clearError}
@@ -133,6 +137,8 @@ export const App: React.FC = () => {
           <OptimizationView
             optimizations={aris.optimizations}
             loading={aris.loading}
+            activeIDESketch={aris.activeIDESketch}
+            onSaveIDESketch={aris.saveIDESketch}
             onApprove={aris.approveOptimization}
             onReject={aris.rejectOptimization}
             onCreateExperiment={aris.createExperiment}

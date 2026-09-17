@@ -40,8 +40,12 @@ import {
   apiGetValidationResult,
   apiGetAIProviders,
   apiAutoDetect,
+  apiGetRecentIDESketch,
+  apiSyncIDESketch,
+  apiSaveIDESketch,
   ARISApiError,
 } from '../services/api';
+import type { IDESketchInfo } from '../types';
 import { arisWs } from '../services/websocket';
 
 // Max telemetry samples to keep in memory per metric
@@ -71,9 +75,11 @@ export function useARIS() {
   const [isDemo, setIsDemo] = useState(false);
   const [isSimulated, setIsSimulated] = useState(false);
 
-  // ---- Firmware ----
+  // ---- Firmware & Arduino IDE Auto-Sync ----
   const [firmwareList, setFirmwareList] = useState<FirmwareRecord[]>([]);
   const [activeFirmware, setActiveFirmware] = useState<FirmwareRecord | null>(null);
+  const [ideSketches, setIdeSketches] = useState<IDESketchInfo[]>([]);
+  const [activeIDESketch, setActiveIDESketch] = useState<IDESketchInfo | null>(null);
 
   // ---- Telemetry ----
   const [latestSamples, setLatestSamples] = useState<Record<string, TelemetrySample>>({});
@@ -190,6 +196,38 @@ export function useARIS() {
     return () => clearInterval(interval);
   }, [backendOnline, boards]);
 
+  // ---- Arduino IDE Auto-Sync: Auto-detects sketches from Arduino IDE 2.x ----
+  const refreshIDESketches = useCallback(async () => {
+    if (!backendOnline) return;
+    try {
+      const resp = await apiGetRecentIDESketch();
+      if (resp.found && resp.sketches.length > 0) {
+        setIdeSketches(resp.sketches);
+        if (resp.active_sketch) {
+          setActiveIDESketch(resp.active_sketch);
+          // Auto-populate activeFirmware if none currently set
+          setActiveFirmware((prev) => {
+            if (!prev && resp.active_sketch?.source_code) {
+              return {
+                firmware_id: 'ide-auto-sync',
+                name: resp.active_sketch.name,
+                source_code: resp.active_sketch.source_code,
+                created_at: new Date(resp.active_sketch.last_modified * 1000).toISOString(),
+              };
+            }
+            return prev;
+          });
+        }
+      }
+    } catch {
+      // Ignore background sync errors
+    }
+  }, [backendOnline]);
+
+  useEffect(() => {
+    refreshIDESketches();
+  }, [refreshIDESketches]);
+
   // ---- Load firmware list ----
   const refreshFirmware = useCallback(() => {
     if (!backendOnline) return;
@@ -285,6 +323,47 @@ export function useARIS() {
       setLastError(e as ARISApiError);
     }
   }, []);
+
+  const syncIDESketch = useCallback(async (path?: string) => {
+    setLoad('firmware', true);
+    try {
+      const resp = await apiSyncIDESketch(path);
+      if (resp.success && resp.firmware) {
+        setActiveFirmware(resp.firmware);
+        setActiveIDESketch({
+          name: resp.name,
+          path: resp.path,
+          last_modified: Date.now() / 1000,
+          source_code: resp.source_code,
+        });
+        await refreshFirmware();
+        return resp.firmware;
+      }
+      return null;
+    } catch (e) {
+      setLastError(e as ARISApiError);
+      return null;
+    } finally {
+      setLoad('firmware', false);
+    }
+  }, [setLoad, refreshFirmware]);
+
+  const saveIDESketch = useCallback(async (path: string, code: string) => {
+    setLoad('firmware', true);
+    try {
+      const res = await apiSaveIDESketch(path, code);
+      if (res.success) {
+        await refreshIDESketches();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      setLastError(e as ARISApiError);
+      return false;
+    } finally {
+      setLoad('firmware', false);
+    }
+  }, [setLoad, refreshIDESketches]);
 
   const uploadFirmware = useCallback(async (name: string, source: string) => {
     setLoad('firmware', true);
@@ -447,9 +526,10 @@ export function useARIS() {
     connectHardware, disconnectHardware,
     // Demo mode
     isDemo, isSimulated,
-    // Firmware
+    // Firmware & Arduino IDE
     firmwareList, activeFirmware, setActiveFirmware,
     uploadFirmware, refreshFirmware,
+    ideSketches, activeIDESketch, syncIDESketch, saveIDESketch, refreshIDESketches,
     // Run
     activeRun, startRun, stopRun,
     // Telemetry

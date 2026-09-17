@@ -120,6 +120,14 @@ export const apiUploadFirmware = (
   });
 export const apiListFirmware = () => get<FirmwareRecord[]>('/api/firmware');
 export const apiGetFirmware = (id: string) => get<FirmwareRecord>(`/api/firmware/${id}`);
+export const apiGetRecentIDESketch = () => get<import('../types').IDERecentResponse>('/api/firmware/ide-recent');
+export const apiSyncIDESketch = (path?: string) =>
+  post<import('../types').IDESyncResponse>('/api/firmware/sync-ide', { path });
+export const apiSaveIDESketch = (path: string, sourceCode: string) =>
+  post<{ success: boolean; path?: string; backup_path?: string; error?: string }>('/api/firmware/save-ide', {
+    path,
+    source_code: sourceCode,
+  });
 
 // ---- Runs ----
 export const apiCreateRun = (

@@ -97,6 +97,28 @@ export interface FirmwareRecord {
   created_at: string;
 }
 
+export interface IDESketchInfo {
+  name: string;
+  path: string;
+  last_modified: number;
+  source_code?: string;
+}
+
+export interface IDERecentResponse {
+  found: boolean;
+  sketches: IDESketchInfo[];
+  active_sketch: IDESketchInfo | null;
+}
+
+export interface IDESyncResponse {
+  success: boolean;
+  firmware: FirmwareRecord;
+  path: string;
+  source_code: string;
+  name: string;
+  error?: string;
+}
+
 // ---- Run ----
 export type RunStatus =
   | 'CREATED'
