@@ -107,6 +107,9 @@ export function useARIS() {
   // ---- Bootstrap: health check ----
   useEffect(() => {
     let mounted = true;
+    let retries = 0;
+    const maxFastRetries = 5;
+
     const probe = async () => {
       try {
         const h = await apiHealth();
@@ -117,6 +120,11 @@ export function useARIS() {
         setHardwareConnected(h.serial_connected);
       } catch {
         if (!mounted) return;
+        if (retries < maxFastRetries) {
+          retries++;
+          setTimeout(probe, 1000);
+          return;
+        }
         setBackendOnline(false);
         setLastError(new ARISApiError(
           'ARIS_BACKEND_UNAVAILABLE',
@@ -127,7 +135,7 @@ export function useARIS() {
       }
     };
     probe();
-    const interval = setInterval(probe, 10000);
+    const interval = setInterval(probe, 8000);
     return () => { mounted = false; clearInterval(interval); };
   }, []);
 
@@ -137,12 +145,12 @@ export function useARIS() {
     apiGetBoards()
       .then((b) => {
         setBoards(b);
-        if (b.length > 0 && !selectedBoard && (hardwareConnected || isDemo)) {
+        if (b.length > 0 && !selectedBoard) {
           setSelectedBoard(b[0]);
         }
       })
       .catch(() => {});
-  }, [backendOnline, hardwareConnected, isDemo]);
+  }, [backendOnline, selectedBoard]);
 
   // ---- Automatic Hardware Detection & Auto-Connection Polling ----
   // Scans USB/COM ports every 2.5s. When an Arduino is plugged in,
@@ -164,8 +172,8 @@ export function useARIS() {
           setIsDemo(false);
           setIsSimulated(false);
           return;
-        } else if (!isDemo) {
-          setSelectedBoard(null);
+        } else if (!isDemo && !selectedBoard && boards.length > 0) {
+          setSelectedBoard(boards[0]);
         }
 
         // Check if any serial ports are physically present
@@ -194,7 +202,7 @@ export function useARIS() {
     scanHardware();
     const interval = setInterval(scanHardware, 2500);
     return () => clearInterval(interval);
-  }, [backendOnline, boards]);
+  }, [backendOnline, boards, isDemo, selectedBoard]);
 
   // ---- Arduino IDE Auto-Sync: Auto-detects sketches from Arduino IDE 2.x ----
   const refreshIDESketches = useCallback(async () => {
@@ -366,14 +374,23 @@ export function useARIS() {
   }, [setLoad, refreshFirmware]);
 
   const startRun = useCallback(async (demo = false) => {
-    if (!selectedBoard) return null;
+    let board = selectedBoard;
+    if (!board && boards.length > 0) {
+      board = boards[0];
+      setSelectedBoard(board);
+    }
+    if (!board) return null;
     setLoad('run', true);
     setIsDemo(demo);
     setIsSimulated(demo);
     try {
+      let fwId = activeFirmware?.firmware_id;
+      if (demo && !fwId) {
+        fwId = 'ARIS-DEMO-FIRMWARE-001';
+      }
       const run = await apiCreateRun(
-        selectedBoard.board_id,
-        activeFirmware?.firmware_id,
+        board.board_id,
+        fwId,
         'BALANCED',
         demo,
         demo,
@@ -382,6 +399,25 @@ export function useARIS() {
       setActiveRun(started);
       setTelemetryHistory({});
       setLatestSamples({});
+
+      // Pre-fetch initial static analysis findings for this run
+      try {
+        const initialFindings = await apiGetFindings(started.run_id);
+        if (initialFindings && initialFindings.length > 0) {
+          setFindings(initialFindings);
+        }
+      } catch (_) {}
+
+      // If demo run and activeFirmware is not loaded, fetch demo firmware record
+      if (demo && !activeFirmware) {
+        try {
+          const demoFw = await apiGetFirmware('ARIS-DEMO-FIRMWARE-001');
+          if (demoFw) {
+            setActiveFirmware(demoFw);
+          }
+        } catch (_) {}
+      }
+
       return started;
     } catch (e) {
       setLastError(e as ARISApiError);
@@ -389,7 +425,7 @@ export function useARIS() {
     } finally {
       setLoad('run', false);
     }
-  }, [selectedBoard, activeFirmware, setLoad]);
+  }, [selectedBoard, boards, activeFirmware, setLoad]);
 
   const stopRun = useCallback(async () => {
     if (!activeRun) return;

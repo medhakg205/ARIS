@@ -44,6 +44,23 @@ def get_db() -> DatabaseEngine:
         # Pre-seed canonical boards if not already present
         for profile in CANONICAL_BOARD_PROFILES.values():
             _db.save_board(profile.to_record())
+        
+        # Pre-seed canonical demo firmware if not present
+        if not _db.get_firmware("ARIS-DEMO-FIRMWARE-001"):
+            from backend.database.models import FirmwareRecord
+            demo_path = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "embedded", "examples", "inefficient", "inefficient.ino"))
+            demo_code = ""
+            if os.path.exists(demo_path):
+                try:
+                    with open(demo_path, "r", encoding="utf-8") as f:
+                        demo_code = f.read()
+                except Exception:
+                    pass
+            _db.save_firmware(FirmwareRecord(
+                firmware_id="ARIS-DEMO-FIRMWARE-001",
+                name="Inefficient Demo Sketch (Virtual ATmega328P)",
+                source_code=demo_code
+            ))
     return _db
 
 

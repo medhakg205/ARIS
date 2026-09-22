@@ -19,6 +19,7 @@ interface DashboardViewProps {
   backendOnline: boolean;
   onStartDemo: () => void;
   onStartHardwareRun?: () => void;
+  onStopRun?: () => void;
   onNavigate: (tab: string) => void;
   onOpenInfo: () => void;
 }
@@ -44,6 +45,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   backendOnline,
   onStartDemo,
   onStartHardwareRun,
+  onStopRun,
   onNavigate,
   onOpenInfo,
 }) => {
@@ -66,17 +68,22 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div>
             <div className="flex items-center gap-2 mb-1.5 flex-wrap">
               <span className="text-[10px] font-medium uppercase tracking-wider text-slate-400 bg-white/[0.04] px-2 py-0.5 rounded border border-white/[0.08]">
-                {hardwareConnected ? 'Active Target' : 'Hardware Target'}
+                {hardwareConnected ? 'Active Physical Target' : (isDemo || activeRun?.is_demo) ? 'Simulated Target' : 'Hardware Target'}
               </span>
               {hardwareConnected && selectedBoard ? (
                 <span className="text-[10px] font-medium text-emerald-300 bg-emerald-500/10 px-2.5 py-0.5 rounded border border-emerald-500/25 flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400/50 animate-pulse" />
-                  USB Detected
+                  USB Connected
+                </span>
+              ) : isDemo || activeRun?.is_demo ? (
+                <span className="text-[10px] font-medium text-teal-300 bg-[#00878a]/15 px-2.5 py-0.5 rounded border border-[#00878a]/30 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#00878a] shadow-sm shadow-[#00878a]/50 animate-pulse" />
+                  Virtual MCU Demo (Synthetic)
                 </span>
               ) : (
-                <span className="text-[10px] font-medium text-slate-400 bg-white/[0.03] px-2 py-0.5 rounded border border-white/[0.06] flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
-                  No Device Connected
+                <span className="text-[10px] font-medium text-amber-300/80 bg-amber-500/10 px-2.5 py-0.5 rounded border border-amber-500/20 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                  Standby · No USB Device
                 </span>
               )}
               <button
@@ -91,40 +98,60 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-slate-100 font-samsung leading-tight">
               {hardwareConnected && selectedBoard
                 ? selectedBoard.display_name
-                : 'No Microcontroller Detected'}
+                : (isDemo || activeRun?.is_demo) && selectedBoard
+                ? `${selectedBoard.display_name} (Virtual MCU Simulation)`
+                : selectedBoard
+                ? `${selectedBoard.display_name} (Ready)`
+                : 'Arduino Uno (Ready)'}
             </h1>
             <p className="text-xs text-slate-400 max-w-2xl leading-normal mt-1 font-sans">
               {hardwareConnected && selectedBoard
-                ? `Real-time telemetry probing ${selectedBoard.mcu?.toUpperCase()} registers, SRAM allocations, loop latency, and interrupt metrics.`
-                : 'Connect your Arduino (Uno, Nano, or Mega) via USB. ARIS automatically detects the COM port, baud rate, and microcontroller architecture.'}
+                ? `Streaming physical telemetry probing ${selectedBoard.mcu?.toUpperCase()} registers, SRAM allocations, loop latency, and interrupt metrics.`
+                : isDemo || activeRun?.is_demo
+                ? `Simulating physical ATmega328P execution cycle. Streaming synthetic loop timing, SRAM footprint, CPU load, and embedded antipattern telemetry.`
+                : 'Connect your Arduino (Uno, Nano, or Mega) via USB to auto-detect hardware, or start the Virtual Arduino Demo below to test real-time monitoring and AI optimizations without hardware.'}
             </p>
           </div>
 
-          {/* Action Control Button */}
+          {/* Action Control Button Area */}
           <div className="flex items-center gap-2.5 shrink-0 mt-2 sm:mt-0">
             {hardwareConnected && !activeRun && (
               <button
                 onClick={onStartHardwareRun}
-                className="px-4 py-1.5 bg-[#00878a] hover:bg-[#00979d] text-white font-medium text-xs rounded transition-colors flex items-center gap-2 shadow-sm"
+                className="px-4 py-2 bg-[#00878a] hover:bg-[#00979d] text-white font-medium text-xs rounded transition-colors flex items-center gap-2 shadow-sm"
               >
                 <Usb className="w-3.5 h-3.5" />
                 Start Hardware Stream
               </button>
             )}
             {activeRun && (
-              <button
-                onClick={() => onNavigate('monitor')}
-                className="px-4 py-1.5 bg-[#00878a] hover:bg-[#00979d] text-white font-medium text-xs rounded transition-colors flex items-center gap-2 shadow-sm"
-              >
-                <Activity className="w-3.5 h-3.5" />
-                Open Live Monitor →
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => onNavigate('monitor')}
+                  className="px-4 py-2 bg-[#00878a] hover:bg-[#00979d] text-white font-medium text-xs rounded transition-colors flex items-center gap-2 shadow-sm"
+                >
+                  <Activity className="w-3.5 h-3.5" />
+                  Open Live Monitor →
+                </button>
+                {onStopRun && (
+                  <button
+                    onClick={onStopRun}
+                    className="px-3 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 font-medium text-xs rounded transition-colors"
+                  >
+                    Stop Stream
+                  </button>
+                )}
+              </div>
             )}
             {!hardwareConnected && !activeRun && (
-              <div className="text-xs text-slate-400 bg-white/[0.03] border border-white/[0.06] px-3 py-1.5 rounded flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
-                Plug Arduino via USB to begin
-              </div>
+              <button
+                onClick={onStartDemo}
+                className="px-4 py-2 bg-[#00878a] hover:bg-[#00979d] text-white font-medium text-xs rounded transition-all flex items-center gap-2 shadow-sm ring-1 ring-[#00878a]/50 hover:ring-[#00878a]"
+                title="Simulates an ATmega328P with live telemetry, CPU load, and AI optimization"
+              >
+                <Zap className="w-3.5 h-3.5 text-amber-300" />
+                Start Virtual Arduino Demo
+              </button>
             )}
           </div>
         </div>
@@ -133,22 +160,22 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mt-3.5 pt-3 border-t border-white/[0.06]">
           <InfoCard
             label="Microcontroller"
-            value={hardwareConnected && selectedBoard ? (selectedBoard.mcu?.toUpperCase() || 'ATMEGA328P') : 'Auto-Detect'}
+            value={selectedBoard ? (selectedBoard.mcu?.toUpperCase() || 'ATMEGA328P') : 'ATMEGA328P'}
             icon={<Cpu className="w-3.5 h-3.5 text-slate-400" />}
           />
           <InfoCard
             label="Architecture"
-            value={hardwareConnected && selectedBoard ? (selectedBoard.architecture?.toUpperCase() || 'AVR8') : 'AVR8 / Multi-MCU'}
+            value={selectedBoard ? (selectedBoard.architecture?.toUpperCase() || 'AVR8') : 'AVR8'}
             icon={<Zap className="w-3.5 h-3.5 text-slate-400" />}
           />
           <InfoCard
             label="Clock Speed"
-            value={hardwareConnected && selectedBoard ? `${selectedBoard.clock_hz / 1_000_000} MHz` : 'Standby'}
+            value={selectedBoard ? `${selectedBoard.clock_hz / 1_000_000} MHz` : '16 MHz'}
             icon={<Clock className="w-3.5 h-3.5 text-slate-400" />}
           />
           <InfoCard
             label="Memory Footprint"
-            value={hardwareConnected && selectedBoard ? `${selectedBoard.sram_bytes / 1024}K / ${selectedBoard.flash_bytes / 1024}K Flash` : 'Awaiting USB'}
+            value={selectedBoard ? `${selectedBoard.sram_bytes / 1024}K / ${selectedBoard.flash_bytes / 1024}K Flash` : '2K / 32K Flash'}
             icon={<MemoryStick className="w-3.5 h-3.5 text-slate-400" />}
           />
         </div>

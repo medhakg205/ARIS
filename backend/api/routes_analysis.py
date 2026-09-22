@@ -55,9 +55,10 @@ def get_run_analysis(run_id: str) -> Dict[str, Any]:
     static_analyzer = get_static_analyzer()
     firmware_mgr = get_firmware_mgr()
     source_code = "void setup() {}\nvoid loop() {}"
-    if run.firmware_id:
+    target_fw_id = run.firmware_id or ("ARIS-DEMO-FIRMWARE-001" if (run.is_demo or run.is_simulated) else None)
+    if target_fw_id:
         try:
-            fw = firmware_mgr.get_firmware(run.firmware_id)
+            fw = firmware_mgr.get_firmware(target_fw_id)
             if fw.source_code:
                 source_code = fw.source_code
         except Exception:

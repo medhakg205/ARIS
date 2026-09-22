@@ -20,6 +20,9 @@ interface LiveMonitorViewProps {
   telemetryHistory: Record<string, TelemetrySample[]>;
   hardwareConnected: boolean;
   onStartRun: () => void;
+  onStartDemo?: () => void;
+  onStopRun?: () => void;
+  onNavigate?: (tab: string) => void;
 }
 
 const CHART_METRICS = [
@@ -46,6 +49,9 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
   telemetryHistory,
   hardwareConnected,
   onStartRun,
+  onStartDemo,
+  onStopRun,
+  onNavigate,
 }) => {
   const seqCount = useMemo(() => {
     const s = latestSamples['loop_time'];
@@ -57,20 +63,32 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
       <div className="flex flex-col items-center justify-center h-full gap-4 text-slate-500">
         <Activity className="w-12 h-12 text-slate-700" />
         <p className="font-mono text-sm">
-          {hardwareConnected ? 'Microcontroller detected and connected.' : 'Plug your Arduino via USB to stream real telemetry.'}
+          {hardwareConnected ? 'Microcontroller detected and connected.' : 'No active telemetry run.'}
         </p>
-        {hardwareConnected ? (
-          <button
-            onClick={onStartRun}
-            className="px-4 py-2 text-xs font-mono bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded hover:bg-emerald-500/20 transition-colors"
-          >
-            Start Live Hardware Run
-          </button>
-        ) : (
-          <div className="text-[11px] font-mono text-slate-500 bg-slate-900 border border-slate-800 px-4 py-2 rounded">
-            Waiting for USB serial device…
-          </div>
-        )}
+        <div className="flex items-center gap-3">
+          {hardwareConnected ? (
+            <button
+              onClick={onStartRun}
+              className="px-4 py-2 text-xs font-mono bg-[#00878a] text-white rounded hover:bg-[#00979d] transition-colors"
+            >
+              Start Live Hardware Run
+            </button>
+          ) : (
+            <>
+              {onStartDemo && (
+                <button
+                  onClick={onStartDemo}
+                  className="px-4 py-2 text-xs font-sans font-medium bg-[#00878a] text-white rounded hover:bg-[#00979d] transition-colors shadow-sm flex items-center gap-2"
+                >
+                  Start Virtual Arduino Demo
+                </button>
+              )}
+              <div className="text-[11px] font-mono text-slate-500 bg-slate-900 border border-slate-800 px-3 py-2 rounded">
+                Or plug Arduino via USB
+              </div>
+            </>
+          )}
+        </div>
       </div>
     );
   }
@@ -110,9 +128,20 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
         <div className="flex items-center gap-3">
           <span className="text-xs font-mono text-slate-400">Frame #{seqCount}</span>
           {isDemo && (
-            <span className="text-[10px] font-medium px-2 py-0.5 border border-white/[0.1] bg-white/[0.04] text-slate-400 rounded">
+            <span className="text-[10px] font-medium px-2 py-0.5 border border-[#00878a]/30 bg-[#00878a]/10 text-teal-300 rounded">
               SYNTHETIC / DEMO
             </span>
+          )}
+          {onStopRun && activeRun.status === 'RUNNING' && (
+            <button
+              onClick={() => {
+                onStopRun();
+                if (onNavigate) onNavigate('analysis');
+              }}
+              className="px-3 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-mono rounded transition-colors"
+            >
+              Stop & View Analysis →
+            </button>
           )}
         </div>
       </div>

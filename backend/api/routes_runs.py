@@ -56,10 +56,15 @@ def create_run(req: CreateRunRequest) -> Dict[str, Any]:
 
     db = get_db()
     run_id = f"ARIS-{uuid.uuid4().hex[:6].upper()}"
+    fw_id = req.firmware_id
+    if not fw_id and req.is_demo:
+        if db.get_firmware("ARIS-DEMO-FIRMWARE-001"):
+            fw_id = "ARIS-DEMO-FIRMWARE-001"
+
     record = RunRecord(
         run_id=run_id,
         board_id=req.board_id,
-        firmware_id=req.firmware_id,
+        firmware_id=fw_id,
         instrumentation_mode=req.instrumentation_mode,
         start_time=None,
         end_time=None,

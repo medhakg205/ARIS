@@ -33,6 +33,7 @@ export const App: React.FC = () => {
 
   const handleStartDemo = useCallback(async () => {
     await aris.startRun(true);
+    setActiveTab('monitor');
   }, [aris]);
 
   const handleStartHardwareRun = useCallback(async () => {
@@ -46,7 +47,13 @@ export const App: React.FC = () => {
 
   const handleGenerateCandidate = useCallback(async (finding: FindingRecord) => {
     const fw = aris.activeFirmware;
-    const source = fw?.source_code || 'void setup() {}\nvoid loop() {}';
+    let source = fw?.source_code;
+    if (!source && aris.activeIDESketch?.source_code) {
+      source = aris.activeIDESketch.source_code;
+    }
+    if (!source) {
+      source = 'void setup() {}\nvoid loop() {}';
+    }
     await aris.generateCandidate(finding, source);
     setActiveTab('optimization');
   }, [aris]);
@@ -90,6 +97,7 @@ export const App: React.FC = () => {
             backendOnline={aris.backendOnline}
             onStartDemo={handleStartDemo}
             onStartHardwareRun={handleStartHardwareRun}
+            onStopRun={handleStopRun}
             onNavigate={handleNavigate}
             onOpenInfo={() => setShowInfoModal(true)}
           />
@@ -104,6 +112,9 @@ export const App: React.FC = () => {
             telemetryHistory={aris.telemetryHistory}
             hardwareConnected={aris.hardwareConnected}
             onStartRun={handleStartHardwareRun}
+            onStartDemo={handleStartDemo}
+            onStopRun={handleStopRun}
+            onNavigate={handleNavigate}
           />
         )}
 
