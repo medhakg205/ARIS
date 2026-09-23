@@ -26,6 +26,10 @@ export const App: React.FC = () => {
   const [selectedExperimentId, setSelectedExperimentId] = useState<string | null>(null);
   const [showInfoModal, setShowInfoModal] = useState(false);
 
+  const handleSplashFinish = useCallback(() => {
+    setShowSplash(false);
+  }, []);
+
   const aris = useARIS();
 
   const handleNavigate = useCallback((tab: string) => {
@@ -68,7 +72,7 @@ export const App: React.FC = () => {
     <div className="flex flex-col h-screen w-screen bg-[#12151a] text-slate-200 overflow-hidden select-none relative">
       {/* Animated Startup Splash Screen */}
       {showSplash && (
-        <SplashScreen onFinish={() => setShowSplash(false)} />
+        <SplashScreen onFinish={handleSplashFinish} />
       )}
 
       {/* Navigation Header */}

@@ -1,84 +1,84 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 interface SplashScreenProps {
   onFinish: () => void;
 }
 
 export const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
-  const [stage, setStage] = useState<number>(1); // 1: Hex Draw, 2: Monogram Ignite, 3: ARIS & Subtitle, 4: 90%->100% Welcome, 5: Smooth Dissolve
+  const [stage, setStage] = useState<number>(1); // 1: Logo & Draw, 2: Brand & Subtitle, 3: 100% Welcome, 4: FadeOut
   const [progress, setProgress] = useState<number>(0);
-  const [statusText, setStatusText] = useState<string>('INITIALIZING RUNTIME CORE...');
+  const [statusText, setStatusText] = useState<string>('Initializing runtime core...');
+  const onFinishRef = useRef(onFinish);
+  onFinishRef.current = onFinish;
+  const startedRef = useRef(false);
 
   useEffect(() => {
-    // Initial start: progress climbs to 25%
-    const p1 = setTimeout(() => {
-      setProgress(25);
-    }, 150);
+    if (startedRef.current) return;
+    startedRef.current = true;
 
-    // Stage 1 -> 2 (700ms): Monogram Ignites, progress climbs to 60%
+    // Step 1: Start smooth progress climb
     const t1 = setTimeout(() => {
-      setStage(2);
-      setProgress(60);
-      setStatusText('ANALYZING EMBEDDED BUS REGISTERS...');
-    }, 700);
+      setProgress(35);
+      setStatusText('Probing microcontroller bus...');
+    }, 400);
 
-    // Stage 2 -> 3 (1500ms): ARIS Title & Subtitle Reveal, progress reaches 90%
+    // Step 2: Monogram + Brand text reveal
     const t2 = setTimeout(() => {
-      setStage(3);
-      setProgress(90);
-      setStatusText('ENGAGING TELEMETRY & AI ENGINE...');
-    }, 1500);
+      setStage(2);
+      setProgress(70);
+      setStatusText('Loading analytical diagnostics...');
+    }, 1100);
 
-    // Stage 3 -> 4 (2400ms): Progress Hits 100% and WELCOME is announced
+    // Step 3: Progress reaches 90%
     const t3 = setTimeout(() => {
-      setStage(4);
+      setProgress(90);
+      setStatusText('Readying optimization engine...');
+    }, 1800);
+
+    // Step 4: Progress reaches 100% and WELCOME is displayed
+    const t4 = setTimeout(() => {
+      setStage(3);
       setProgress(100);
       setStatusText('WELCOME');
-    }, 2400);
+    }, 2500);
 
-    // Stage 4 -> 5 (3500ms): Slow, graceful fade-out begins
-    const t4 = setTimeout(() => {
-      setStage(5);
+    // Step 5: Start slow fade-out transition
+    const t5 = setTimeout(() => {
+      setStage(4);
     }, 3600);
 
-    // Final completion (4600ms): Main App revealed smoothly
-    const t5 = setTimeout(() => {
-      onFinish();
-    }, 4600);
+    // Step 6: Complete and hand over to main app
+    const t6 = setTimeout(() => {
+      onFinishRef.current();
+    }, 4400);
 
     return () => {
-      clearTimeout(p1);
       clearTimeout(t1);
       clearTimeout(t2);
       clearTimeout(t3);
       clearTimeout(t4);
       clearTimeout(t5);
+      clearTimeout(t6);
     };
-  }, [onFinish]);
+  }, []);
 
   return (
     <div
-      className={`fixed inset-0 z-[9999] bg-[#0c0e12] flex flex-col items-center justify-center select-none overflow-hidden transition-all duration-1000 ease-in-out ${
-        stage === 5 ? 'opacity-0 scale-[1.03] pointer-events-none' : 'opacity-100 scale-100'
+      className={`fixed inset-0 z-[9999] bg-[#12151a] flex flex-col items-center justify-center select-none overflow-hidden transition-opacity duration-700 ease-in-out ${
+        stage === 4 ? 'opacity-0 pointer-events-none' : 'opacity-100'
       }`}
     >
-      {/* Background Engineering Matrix Grid & Ambient Glow */}
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#161a2218_1px,transparent_1px),linear-gradient(to_bottom,#161a2218_1px,transparent_1px)] bg-[size:32px_32px] pointer-events-none" />
-      <div className="absolute w-[540px] h-[540px] rounded-full bg-[#00878a]/18 blur-[130px] pointer-events-none animate-pulse" />
+      {/* Ambient background glow */}
+      <div className="absolute w-[450px] h-[450px] rounded-full bg-[#00878a]/12 blur-[100px] pointer-events-none" />
 
-      {/* Center Cinematic Container */}
-      <div className="relative flex flex-col items-center z-10">
-        {/* Animated Vector Logo */}
-        <div className="relative w-36 h-36 sm:w-44 sm:h-44 flex items-center justify-center">
-          <svg
-            viewBox="0 0 200 200"
-            className="w-full h-full drop-shadow-[0_0_28px_rgba(0,196,199,0.38)]"
-            fill="none"
-          >
+      <div className="relative flex flex-col items-center z-10 max-w-md w-full px-6">
+        {/* Hex Logo */}
+        <div className="relative w-28 h-28 sm:w-32 sm:h-32 flex items-center justify-center mb-5">
+          <svg viewBox="0 0 200 200" className="w-full h-full" fill="none">
             <defs>
               <linearGradient id="splashTeal" x1="0%" y1="0%" x2="100%" y2="100%">
                 <stop offset="0%" stopColor="#00f0ff" />
-                <stop offset="50%" stopColor="#00c4c7" />
+                <stop offset="60%" stopColor="#00c4c7" />
                 <stop offset="100%" stopColor="#00878a" />
               </linearGradient>
 
@@ -87,8 +87,8 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
                 <stop offset="100%" stopColor="#ffd56b" />
               </linearGradient>
 
-              <filter id="splashGlow" x="-30%" y="-30%" width="160%" height="160%">
-                <feGaussianBlur stdDeviation="4.5" result="blur" />
+              <filter id="splashGlow" x="-20%" y="-20%" width="140%" height="140%">
+                <feGaussianBlur stdDeviation="3.5" result="blur" />
                 <feMerge>
                   <feMergeNode in="blur" />
                   <feMergeNode in="SourceGraphic" />
@@ -96,166 +96,90 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
               </filter>
             </defs>
 
-            {/* Outer Hexagon Chassis with Dash Animation */}
+            {/* Outer Hexagon */}
             <polygon
               points="100,28 162.35,64 162.35,136 100,172 37.65,136 37.65,64"
               stroke="url(#splashTeal)"
-              strokeWidth="5"
+              strokeWidth="4.5"
               strokeLinejoin="round"
               filter="url(#splashGlow)"
-              className="fill-[#161a22]/85"
-              style={{
-                strokeDasharray: 450,
-                strokeDashoffset: stage >= 1 ? 0 : 450,
-                transition: 'stroke-dashoffset 0.9s cubic-bezier(0.16, 1, 0.3, 1)',
-              }}
+              fill="#161a22"
+              fillOpacity="0.8"
             />
 
-            {/* Secondary Concentric Hex Track */}
-            <polygon
-              points="100,42 150,71 150,129 100,158 50,129 50,71"
-              stroke="#00878a"
-              strokeWidth="1.5"
-              strokeOpacity={stage >= 2 ? 0.6 : 0}
-              strokeDasharray="6 3"
-              strokeLinejoin="round"
-              className="transition-opacity duration-700"
-            />
-
-            {/* Corner Node Micro-Vias */}
-            <g className={`transition-opacity duration-500 ${stage >= 1 ? 'opacity-100' : 'opacity-0'}`}>
-              <circle cx="100" cy="28" r="4" fill="#00f0ff" />
-              <circle cx="162.35" cy="64" r="4" fill="#00f0ff" />
-              <circle cx="162.35" cy="136" r="4" fill="#00f0ff" />
-              <circle cx="100" cy="172" r="4" fill="#00f0ff" />
-              <circle cx="37.65" cy="136" r="4" fill="#00f0ff" />
-              <circle cx="37.65" cy="64" r="4" fill="#00f0ff" />
-            </g>
+            {/* Micro-nodes */}
+            <circle cx="100" cy="28" r="3.5" fill="#00f0ff" />
+            <circle cx="162.35" cy="64" r="3.5" fill="#00f0ff" />
+            <circle cx="162.35" cy="136" r="3.5" fill="#00f0ff" />
+            <circle cx="100" cy="172" r="3.5" fill="#00f0ff" />
+            <circle cx="37.65" cy="136" r="3.5" fill="#00f0ff" />
+            <circle cx="37.65" cy="64" r="3.5" fill="#00f0ff" />
 
             {/* Interlocking Monogram (A & R Circuit Traces) */}
-            <g
-              filter="url(#splashGlow)"
-              className={`transition-all duration-800 ease-out ${
-                stage >= 2 ? 'opacity-100 scale-100' : 'opacity-0 scale-90'
-              }`}
-              style={{ transformOrigin: 'center' }}
-            >
-              {/* Left vertical stem */}
-              <path
-                d="M70 142 L70 58"
-                stroke="url(#splashTeal)"
-                strokeWidth="7.5"
-                strokeLinecap="round"
-              />
-
-              {/* Top loop of R */}
+            <g filter="url(#splashGlow)">
+              <path d="M70 142 L70 58" stroke="url(#splashTeal)" strokeWidth="7" strokeLinecap="round" />
               <path
                 d="M70 58 L112 58 C130 58, 134 74, 134 84 C134 96, 124 102, 110 102 L70 102"
                 stroke="url(#splashTeal)"
-                strokeWidth="7.5"
+                strokeWidth="7"
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
-
-              {/* Right diagonal leg of R */}
-              <path
-                d="M106 102 L138 142"
-                stroke="url(#splashGold)"
-                strokeWidth="7.5"
-                strokeLinecap="round"
-              />
-
-              {/* Crossbar bridge */}
-              <path
-                d="M70 102 L110 102"
-                stroke="url(#splashTeal)"
-                strokeWidth="7.5"
-                strokeLinecap="round"
-              />
-
-              {/* Diagonal accent antenna trace */}
-              <path
-                d="M70 80 L124 46"
-                stroke="url(#splashGold)"
-                strokeWidth="3.5"
-                strokeLinecap="round"
-                strokeDasharray="4 4"
-              />
-
-              {/* Micro solder pads */}
-              <circle cx="70" cy="58" r="3" fill="#ffffff" />
-              <circle cx="138" cy="142" r="4" fill="#ffd56b" />
-              <circle cx="70" cy="142" r="4" fill="#00f0ff" />
+              <path d="M106 102 L138 142" stroke="url(#splashGold)" strokeWidth="7" strokeLinecap="round" />
+              <path d="M70 102 L110 102" stroke="url(#splashTeal)" strokeWidth="7" strokeLinecap="round" />
             </g>
+
+            {/* Solder Points */}
+            <circle cx="70" cy="58" r="2.5" fill="#ffffff" />
+            <circle cx="138" cy="142" r="3.5" fill="#ffd56b" />
+            <circle cx="70" cy="142" r="3.5" fill="#00f0ff" />
           </svg>
         </div>
 
-        {/* Brand Name "ARIS" Reveal */}
-        <div
-          className={`mt-4 text-center transition-all duration-700 transform ${
-            stage >= 3 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
-          }`}
-        >
-          <h1 className="text-4xl sm:text-5xl font-extrabold tracking-[0.25em] text-transparent bg-clip-text bg-gradient-to-r from-white via-slate-100 to-teal-200 font-samsung drop-shadow-[0_2px_12px_rgba(0,196,199,0.35)]">
-            ARIS
-          </h1>
-        </div>
+        {/* Brand Name "ARIS" */}
+        <h1 className="text-3xl sm:text-4xl font-semibold tracking-wider text-slate-100 font-sans leading-none text-center">
+          ARIS
+        </h1>
 
-        {/* Subtitle Full Form Reveal */}
-        <div
-          className={`mt-2 text-center transition-all duration-700 transform ${
-            stage >= 3 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3'
-          }`}
-        >
-          <p className="text-xs sm:text-sm font-semibold tracking-[0.14em] text-[#00c4c7] uppercase font-sans">
-            Arduino Runtime Intelligence System
-          </p>
-          <p className="text-[10px] text-slate-400 font-mono tracking-widest mt-1">
-            ADVANCED MULTI-MCU PROFILER & AI OPTIMIZATION SUITE
-          </p>
-        </div>
+        {/* Full Title Subtitle */}
+        <p className="text-xs sm:text-sm font-medium text-[#00878a] tracking-wide mt-2 text-center font-sans">
+          Arduino Runtime Intelligence System
+        </p>
+
+        <p className="text-[11px] text-slate-400 font-sans mt-1 text-center">
+          Multi-MCU Runtime Intelligence & AI Optimization Platform
+        </p>
 
         {/* Progress & Welcome Section */}
-        <div className="mt-8 flex flex-col items-center gap-3">
-          {/* Status Message / WELCOME Announcement */}
-          <div
-            className={`transition-all duration-500 flex items-center justify-center ${
-              stage >= 4
-                ? 'scale-110'
-                : 'scale-100'
-            }`}
-          >
-            {stage >= 4 ? (
-              <div className="flex items-center gap-2 px-5 py-1.5 rounded-full bg-teal-500/15 border border-teal-400/40 shadow-[0_0_20px_rgba(0,196,199,0.3)] animate-pulse">
-                <span className="w-2 h-2 rounded-full bg-[#00f0ff] shadow-sm shadow-[#00f0ff]" />
-                <span className="font-samsung font-bold text-sm text-transparent bg-clip-text bg-gradient-to-r from-white via-teal-200 to-[#00f0ff] tracking-[0.3em] uppercase">
-                  WELCOME
-                </span>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-white/[0.04] border border-white/[0.08] backdrop-blur-md">
-                <span className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-ping" />
-                <span className="font-mono text-[10px] text-slate-300 tracking-wider">
-                  {statusText}
-                </span>
-              </div>
-            )}
-          </div>
+        <div className="mt-7 w-full flex flex-col items-center gap-2.5">
+          {/* Status Text or Welcome Badge */}
+          {stage === 3 ? (
+            <div className="flex items-center gap-2 px-4 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 animate-pulse">
+              <span className="w-2 h-2 rounded-full bg-emerald-400" />
+              <span className="text-xs font-semibold text-emerald-300 font-sans tracking-wider uppercase">
+                WELCOME
+              </span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 px-3 py-0.5 rounded bg-white/[0.04] border border-white/[0.08]">
+              <span className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse" />
+              <span className="text-[11px] text-slate-300 font-sans">
+                {statusText}
+              </span>
+            </div>
+          )}
 
-          {/* Smooth 0 -> 90 -> 100% Progress Bar */}
-          <div className="w-56 h-1.5 bg-white/[0.06] rounded-full overflow-hidden p-0.5 border border-white/[0.06]">
+          {/* Clean Progress Bar */}
+          <div className="w-64 h-1.5 bg-white/[0.06] rounded-full overflow-hidden border border-white/[0.06] mt-1">
             <div
-              className="h-full bg-gradient-to-r from-[#00878a] via-[#00c4c7] to-[#00f0ff] rounded-full transition-all duration-800 ease-out shadow-[0_0_10px_rgba(0,240,255,0.4)]"
-              style={{
-                width: `${progress}%`,
-              }}
+              className="h-full bg-gradient-to-r from-[#00878a] to-[#00f0ff] rounded-full transition-all duration-500 ease-out"
+              style={{ width: `${progress}%` }}
             />
           </div>
 
-          {/* Micro Progress Percentage */}
-          <div className="text-[10px] font-mono text-slate-400 tracking-widest">
+          <span className="text-[10px] font-mono text-slate-400">
             {progress}%
-          </div>
+          </span>
         </div>
       </div>
     </div>

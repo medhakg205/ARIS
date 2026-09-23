@@ -76,6 +76,8 @@ function createWindow() {
     autoHideMenuBar: true
   });
 
+  mainWindow.maximize();
+
   const indexPath = path.join(__dirname, '..', 'dist', 'index.html');
   console.log(`[ARIS Electron] Loading GUI from: ${indexPath}`);
   mainWindow.loadFile(indexPath);
