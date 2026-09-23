@@ -3,6 +3,13 @@ const path = require('path');
 const http = require('http');
 const { spawn } = require('child_process');
 
+// Set Application Name & Windows AppUserModelId so Taskbar displays 'ARIS'
+app.name = 'ARIS';
+app.setName('ARIS');
+if (process.platform === 'win32') {
+  app.setAppUserModelId('ARIS');
+}
+
 let mainWindow = null;
 let pythonProcess = null;
 
@@ -51,13 +58,15 @@ function startPythonBackend() {
 }
 
 function createWindow() {
+  const iconPath = path.join(__dirname, 'assets', 'icon.png');
   mainWindow = new BrowserWindow({
     width: 1440,
     height: 920,
     minWidth: 1100,
     minHeight: 700,
     backgroundColor: '#12151a',
-    title: 'ARIS Studio - Multi-MCU Runtime Intelligence & AI Optimization Platform',
+    title: 'ARIS',
+    icon: iconPath,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       nodeIntegration: false,

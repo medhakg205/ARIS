@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <rect width="128" height="128" rx="28" fill="#12151a" />
+  <rect x="2" y="2" width="124" height="124" rx="26" fill="none" stroke="#00878a" stroke-width="3" stroke-opacity="0.6" />
+  <!-- Circuit traces -->
+  <path d="M64 16 L64 34 M64 94 L64 112 M16 64 L34 64 M94 64 L112 64" stroke="#00878a" stroke-width="4" stroke-linecap="round" />
+  <path d="M30 30 L44 44 M98 30 L84 44 M30 98 L44 84 M98 98 L84 84" stroke="#00c4c7" stroke-width="3" stroke-linecap="round" stroke-opacity="0.7" />
+  <!-- Core MCU Body -->
+  <rect x="36" y="36" width="56" height="56" rx="10" fill="#1a232f" stroke="#00c4c7" stroke-width="3.5" />
+  <!-- Core Glow / Pulse -->
+  <circle cx="64" cy="64" r="14" fill="#00878a" fill-opacity="0.3" />
+  <!-- ARIS Central Logo Glyphs -->
+  <path d="M56 72 L64 52 L72 72 M58 66 L70 66" stroke="#56d4dd" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+  <circle cx="64" cy="46" r="2.5" fill="#56d4dd" />
+</svg>

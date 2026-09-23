@@ -1,5 +1,7 @@
 {
-  "name": "aris-studio",
+  "name": "aris",
+  "productName": "ARIS",
+  "appId": "com.aris.studio",
   "version": "2.0.0",
   "description": "ARIS (Arduino Runtime Intelligence System) - Standalone Desktop Application",
   "type": "module",
