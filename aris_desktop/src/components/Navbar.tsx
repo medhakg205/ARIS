@@ -2,8 +2,9 @@
 // ARIS — Navigation Bar
 // ============================================================
 import React from 'react';
-import { Cpu, HelpCircle } from 'lucide-react';
+import { HelpCircle } from 'lucide-react';
 import { DemoBanner } from './common/DemoBanner';
+import { ArisLogo } from './common/ArisLogo';
 
 export type NavTab =
   | 'dashboard'
@@ -51,8 +52,8 @@ export const Navbar: React.FC<NavbarProps> = ({
     <header className="h-12 bg-[#161920] border-b border-white/[0.08] flex items-center px-4 gap-4 shrink-0 select-none z-30">
       {/* Brand */}
       <div className="flex items-center gap-2.5 shrink-0">
-        <div className="w-7 h-7 rounded bg-[#00878a]/20 border border-[#00878a]/40 flex items-center justify-center text-[#00878a]">
-          <Cpu className="w-3.5 h-3.5" />
+        <div className="flex items-center justify-center">
+          <ArisLogo size={28} glow={true} />
         </div>
         <div>
           <div className="flex items-center gap-1.5 leading-tight">

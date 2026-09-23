@@ -15,12 +15,13 @@ import { OptimizationView } from './components/Optimization/OptimizationView';
 import { ExperimentsView } from './components/Experiments/ExperimentsView';
 import { ValidationView } from './components/Validation/ValidationView';
 import { HistoryView } from './components/History/HistoryView';
-import { SettingsView } from './components/Settings/SettingsView';
 import { ErrorBanner } from './components/common/ErrorBanner';
 import { SystemInfoModal } from './components/common/SystemInfoModal';
+import { SplashScreen } from './components/common/SplashScreen';
 import type { FindingRecord } from './types';
 
 export const App: React.FC = () => {
+  const [showSplash, setShowSplash] = useState(true);
   const [activeTab, setActiveTab] = useState<NavTab>('dashboard');
   const [selectedExperimentId, setSelectedExperimentId] = useState<string | null>(null);
   const [showInfoModal, setShowInfoModal] = useState(false);
@@ -64,7 +65,12 @@ export const App: React.FC = () => {
   }, []);
 
   return (
-    <div className="flex flex-col h-screen w-screen bg-[#12151a] text-slate-200 overflow-hidden select-none">
+    <div className="flex flex-col h-screen w-screen bg-[#12151a] text-slate-200 overflow-hidden select-none relative">
+      {/* Animated Startup Splash Screen */}
+      {showSplash && (
+        <SplashScreen onFinish={() => setShowSplash(false)} minDurationMs={3000} />
+      )}
+
       {/* Navigation Header */}
       <Navbar
         activeTab={activeTab}
