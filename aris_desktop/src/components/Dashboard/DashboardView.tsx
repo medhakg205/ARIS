@@ -4,9 +4,10 @@
 // active run info, and hardware connection status.
 // ============================================================
 
-import React from 'react';
-import { Cpu, MemoryStick, Zap, Activity, Clock, Usb, HelpCircle } from 'lucide-react';
+import React, { useState } from 'react';
+import { Cpu, MemoryStick, Zap, Activity, Clock, Usb, HelpCircle, Sparkles } from 'lucide-react';
 import { MetricBadge } from '../common/MetricBadge';
+import { DemoLaunchModal } from './DemoLaunchModal';
 import type { BoardProfile, RunRecord, TelemetrySample, HealthStatus } from '../../types';
 
 interface DashboardViewProps {
@@ -17,7 +18,7 @@ interface DashboardViewProps {
   isDemo: boolean;
   latestSamples: Record<string, TelemetrySample>;
   backendOnline: boolean;
-  onStartDemo: () => void;
+  onStartDemo: (boardId?: string, projectId?: string) => Promise<void> | void;
   onStartHardwareRun?: () => void;
   onStopRun?: () => void;
   onNavigate: (tab: string) => void;
@@ -49,15 +50,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onNavigate,
   onOpenInfo,
 }) => {
-  const runStatusColor: Record<string, string> = {
-    CREATED: 'text-slate-400',
-    BUILDING: 'text-amber-400',
-    FLASHING: 'text-amber-400',
-    RUNNING: 'text-emerald-400',
-    COLLECTING: 'text-blue-400',
-    COMPLETED: 'text-slate-400',
-    FAILED: 'text-red-400',
-    ROLLED_BACK: 'text-orange-400',
+  const [showDemoModal, setShowDemoModal] = useState(false);
+
+  const isSimulatedActive = isDemo || !!activeRun?.is_demo;
+
+  const handleLaunchDemoFromModal = async (boardId: string, projectId: string) => {
+    await onStartDemo(boardId, projectId);
   };
 
   return (
@@ -68,22 +66,22 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div>
             <div className="flex items-center gap-2 mb-1.5 flex-wrap">
               <span className="text-[10px] font-medium uppercase tracking-wider text-slate-400 bg-white/[0.04] px-2 py-0.5 rounded border border-white/[0.08]">
-                {hardwareConnected ? 'Active Physical Target' : (isDemo || activeRun?.is_demo) ? 'Simulated Target' : 'Hardware Target'}
+                {hardwareConnected ? 'Active Physical Target' : isSimulatedActive ? 'Virtual Simulated Target' : 'Hardware Target'}
               </span>
               {hardwareConnected && selectedBoard ? (
                 <span className="text-[10px] font-medium text-emerald-300 bg-emerald-500/10 px-2.5 py-0.5 rounded border border-emerald-500/25 flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400/50 animate-pulse" />
                   USB Connected
                 </span>
-              ) : isDemo || activeRun?.is_demo ? (
+              ) : isSimulatedActive ? (
                 <span className="text-[10px] font-medium text-teal-300 bg-[#00878a]/15 px-2.5 py-0.5 rounded border border-[#00878a]/30 flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#00878a] shadow-sm shadow-[#00878a]/50 animate-pulse" />
                   Virtual MCU Demo (Synthetic)
                 </span>
               ) : (
                 <span className="text-[10px] font-medium text-amber-300/80 bg-amber-500/10 px-2.5 py-0.5 rounded border border-amber-500/20 flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                  Standby · No USB Device
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400/80" />
+                  No Microcontroller Detected
                 </span>
               )}
               <button
@@ -97,19 +95,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
             <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-slate-100 font-samsung leading-tight">
               {hardwareConnected && selectedBoard
-                ? selectedBoard.display_name
-                : (isDemo || activeRun?.is_demo) && selectedBoard
-                ? `${selectedBoard.display_name} (Virtual MCU Simulation)`
-                : selectedBoard
-                ? `${selectedBoard.display_name} (Ready)`
-                : 'Arduino Uno (Ready)'}
+                ? `${selectedBoard.display_name} (Connected)`
+                : isSimulatedActive && selectedBoard
+                ? `${selectedBoard.display_name} (Virtual Demo Simulation)`
+                : 'No Microcontroller Detected'}
             </h1>
             <p className="text-xs text-slate-400 max-w-2xl leading-normal mt-1 font-sans">
               {hardwareConnected && selectedBoard
                 ? `Streaming physical telemetry probing ${selectedBoard.mcu?.toUpperCase()} registers, SRAM allocations, loop latency, and interrupt metrics.`
-                : isDemo || activeRun?.is_demo
-                ? `Simulating physical ATmega328P execution cycle. Streaming synthetic loop timing, SRAM footprint, CPU load, and embedded antipattern telemetry.`
-                : 'Connect your Arduino (Uno, Nano, or Mega) via USB to auto-detect hardware, or start the Virtual Arduino Demo below to test real-time monitoring and AI optimizations without hardware.'}
+                : isSimulatedActive
+                ? `Simulating ${selectedBoard?.display_name || 'Arduino Uno'} ATmega execution cycle. Streaming synthetic loop timing, SRAM footprint, CPU load, and embedded antipattern telemetry.`
+                : 'Connect an Arduino (Uno, Nano, or Mega) via USB to auto-detect hardware, or run a virtual demo to test real-time monitoring and AI optimizations.'}
             </p>
           </div>
 
@@ -145,12 +141,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             )}
             {!hardwareConnected && !activeRun && (
               <button
-                onClick={onStartDemo}
-                className="px-4 py-2 bg-[#00878a] hover:bg-[#00979d] text-white font-medium text-xs rounded transition-all flex items-center gap-2 shadow-sm ring-1 ring-[#00878a]/50 hover:ring-[#00878a]"
-                title="Simulates an ATmega328P with live telemetry, CPU load, and AI optimization"
+                onClick={() => setShowDemoModal(true)}
+                className="px-3.5 py-2 bg-[#12151a] hover:bg-[#161a22] text-teal-300 hover:text-white border border-[#00878a]/40 hover:border-[#00878a] font-medium text-xs rounded-lg transition-all flex items-center gap-2 shadow-sm hover:shadow-[#00878a]/10"
+                title="Open demo selector with 6 real-world project scenarios"
               >
-                <Zap className="w-3.5 h-3.5 text-amber-300" />
-                Start Virtual Arduino Demo
+                <Zap className="w-3.5 h-3.5 text-teal-400" />
+                <span>Run Virtual Demo</span>
+                <span className="text-slate-500 font-mono">→</span>
               </button>
             )}
           </div>
@@ -160,26 +157,33 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mt-3.5 pt-3 border-t border-white/[0.06]">
           <InfoCard
             label="Microcontroller"
-            value={selectedBoard ? (selectedBoard.mcu?.toUpperCase() || 'ATMEGA328P') : 'ATMEGA328P'}
+            value={(hardwareConnected || isSimulatedActive) && selectedBoard ? (selectedBoard.mcu?.toUpperCase() || 'ATMEGA328P') : '—'}
             icon={<Cpu className="w-3.5 h-3.5 text-slate-400" />}
           />
           <InfoCard
             label="Architecture"
-            value={selectedBoard ? (selectedBoard.architecture?.toUpperCase() || 'AVR8') : 'AVR8'}
+            value={(hardwareConnected || isSimulatedActive) && selectedBoard ? (selectedBoard.architecture?.toUpperCase() || 'AVR8') : '—'}
             icon={<Zap className="w-3.5 h-3.5 text-slate-400" />}
           />
           <InfoCard
             label="Clock Speed"
-            value={selectedBoard ? `${selectedBoard.clock_hz / 1_000_000} MHz` : '16 MHz'}
+            value={(hardwareConnected || isSimulatedActive) && selectedBoard ? `${selectedBoard.clock_hz / 1_000_000} MHz` : '—'}
             icon={<Clock className="w-3.5 h-3.5 text-slate-400" />}
           />
           <InfoCard
             label="Memory Footprint"
-            value={selectedBoard ? `${selectedBoard.sram_bytes / 1024}K / ${selectedBoard.flash_bytes / 1024}K Flash` : '2K / 32K Flash'}
+            value={(hardwareConnected || isSimulatedActive) && selectedBoard ? `${selectedBoard.sram_bytes / 1024}K / ${selectedBoard.flash_bytes / 1024}K Flash` : '—'}
             icon={<MemoryStick className="w-3.5 h-3.5 text-slate-400" />}
           />
         </div>
       </div>
+
+      {/* Demo Selection Modal */}
+      <DemoLaunchModal
+        isOpen={showDemoModal}
+        onClose={() => setShowDemoModal(false)}
+        onLaunch={handleLaunchDemoFromModal}
+      />
 
       {/* Metrics Section Header */}
       <div className="shrink-0">

@@ -27,6 +27,8 @@ import {
   apiDisconnect,
   apiUploadFirmware,
   apiListFirmware,
+  apiGetFirmware,
+  apiSetupDemo,
   apiCreateRun,
   apiStartRun,
   apiStopRun,
@@ -427,6 +429,66 @@ export function useARIS() {
     }
   }, [selectedBoard, boards, activeFirmware, setLoad]);
 
+  const startDemo = useCallback(async (boardId: string = 'arduino_uno', projectId: string = 'led_blink') => {
+    setLoad('run', true);
+    setIsDemo(true);
+    setIsSimulated(true);
+    try {
+      // 1. Setup demo project and create firmware record in backend
+      const setupRes = await apiSetupDemo(boardId, projectId);
+      
+      // Find matching board profile or synthesize canonical specs
+      const targetBoard = boards.find((b) => b.board_id === boardId) || {
+        board_id: boardId,
+        display_name: boardId === 'arduino_mega' ? 'Arduino Mega 2560' : boardId === 'arduino_nano' ? 'Arduino Nano' : 'Arduino Uno',
+        mcu: boardId === 'arduino_mega' ? 'atmega2560' : 'atmega328p',
+        architecture: 'avr8',
+        clock_hz: 16000000,
+        flash_bytes: boardId === 'arduino_mega' ? 262144 : 32768,
+        sram_bytes: boardId === 'arduino_mega' ? 8192 : 2048,
+        eeprom_bytes: boardId === 'arduino_mega' ? 4096 : 1024,
+        gpio_count: boardId === 'arduino_mega' ? 54 : 14,
+        adc_channels: boardId === 'arduino_mega' ? 16 : 6,
+        pwm_channels: boardId === 'arduino_mega' ? 15 : 6,
+        uart_count: boardId === 'arduino_mega' ? 4 : 1,
+        registers: {},
+      };
+      setSelectedBoard(targetBoard as BoardProfile);
+
+      // Set active firmware
+      const fwRecord: FirmwareRecord = {
+        firmware_id: setupRes.firmware_id,
+        name: `${setupRes.project.title} (${targetBoard.display_name})`,
+        source_code: setupRes.source_code,
+        uploaded_at: new Date().toISOString(),
+        analysis_status: 'ANALYZED',
+      };
+      setActiveFirmware(fwRecord);
+
+      // 2. Create and start simulated run
+      const run = await apiCreateRun(boardId, setupRes.firmware_id, 'BALANCED', true, true);
+      const started = await apiStartRun(run.run_id);
+      setActiveRun(started);
+      setTelemetryHistory({});
+      setLatestSamples({});
+
+      // 3. Pre-fetch initial static analysis findings
+      try {
+        const initialFindings = await apiGetFindings(started.run_id);
+        if (initialFindings && initialFindings.length > 0) {
+          setFindings(initialFindings);
+        }
+      } catch (_) {}
+
+      return started;
+    } catch (e) {
+      setLastError(e as ARISApiError);
+      return null;
+    } finally {
+      setLoad('run', false);
+    }
+  }, [boards, setLoad]);
+
   const stopRun = useCallback(async () => {
     if (!activeRun) return;
     setLoad('stop', true);
@@ -552,7 +614,7 @@ export function useARIS() {
     uploadFirmware, refreshFirmware,
     ideSketches, activeIDESketch, syncIDESketch, saveIDESketch, refreshIDESketches,
     // Run
-    activeRun, startRun, stopRun,
+    activeRun, startRun, startDemo, stopRun,
     // Telemetry
     latestSamples, telemetryHistory,
     // Analysis

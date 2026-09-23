@@ -324,3 +324,35 @@ export interface AIProviderInfo {
   display_name: string;
   available: boolean;
 }
+
+// ---- Demo Projects ----
+export interface DemoProject {
+  project_id: string;
+  title: string;
+  icon: string;
+  category: string;
+  description: string;
+  antipatterns: string[];
+}
+
+export interface DemoBoard {
+  board_id: string;
+  display_name: string;
+  mcu: string;
+  clock_mhz: number;
+  sram_kb: number;
+  flash_kb: number;
+}
+
+export interface DemoSetupResponse {
+  firmware_id: string;
+  project: {
+    project_id: string;
+    title: string;
+    icon: string;
+    antipatterns: string[];
+  };
+  board_id: string;
+  source_code: string;
+}
+

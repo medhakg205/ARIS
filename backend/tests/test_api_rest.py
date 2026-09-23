@@ -223,3 +223,39 @@ def test_experiments_and_validation_endpoints(test_client):
     res_val = test_client.get(f"/api/experiments/{exp_id}/result")
     assert res_val.status_code == 200
     assert res_val.json()["validation_status"] == val_report["validation_status"]
+
+
+def test_demo_projects_endpoints(test_client):
+    """GET /api/demo/projects, GET /api/demo/boards, POST /api/demo/setup"""
+    # 1. List demo projects
+    res_p = test_client.get("/api/demo/projects")
+    assert res_p.status_code == 200
+    projects = res_p.json()
+    assert len(projects) >= 6
+    project_ids = [p["project_id"] for p in projects]
+    assert "led_blink" in project_ids
+    assert "ultrasonic_sensor" in project_ids
+    assert "temperature_monitor" in project_ids
+
+    # 2. List demo boards
+    res_b = test_client.get("/api/demo/boards")
+    assert res_b.status_code == 200
+    boards = res_b.json()
+    assert len(boards) >= 3
+    board_ids = [b["board_id"] for b in boards]
+    assert "arduino_uno" in board_ids
+    assert "arduino_nano" in board_ids
+    assert "arduino_mega" in board_ids
+
+    # 3. Setup demo run with project + board
+    res_setup = test_client.post("/api/demo/setup", json={
+        "board_id": "arduino_mega",
+        "project_id": "ultrasonic_sensor"
+    })
+    assert res_setup.status_code == 200
+    data = res_setup.json()
+    assert "firmware_id" in data
+    assert "ARIS-DEMO-ARDUINO_MEGA-ULTRASONIC_SENSOR" in data["firmware_id"]
+    assert len(data["source_code"]) > 50
+    assert "pulseIn" in data["source_code"]
+

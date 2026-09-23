@@ -31,8 +31,8 @@ export const App: React.FC = () => {
     setActiveTab(tab as NavTab);
   }, []);
 
-  const handleStartDemo = useCallback(async () => {
-    await aris.startRun(true);
+  const handleStartDemo = useCallback(async (boardId: string = 'arduino_uno', projectId: string = 'led_blink') => {
+    await aris.startDemo(boardId, projectId);
     setActiveTab('monitor');
   }, [aris]);
 

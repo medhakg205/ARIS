@@ -98,6 +98,11 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span className="text-[10px] text-emerald-400/80 uppercase">Target:</span>
             <span>{boardName}</span>
           </div>
+        ) : isDemo && boardName ? (
+          <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded bg-[#00878a]/15 border border-[#00878a]/30 text-xs text-teal-300 font-mono">
+            <span className="text-[10px] text-teal-400/80 uppercase">Target:</span>
+            <span>{boardName} (Sim)</span>
+          </div>
         ) : (
           <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded bg-white/[0.02] border border-white/[0.06] text-xs text-slate-400 font-mono">
             <span className="text-[10px] text-slate-500 uppercase">Target:</span>

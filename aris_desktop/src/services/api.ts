@@ -19,6 +19,9 @@ import type {
   AIProviderInfo,
   ArisError,
   RunStatus,
+  DemoProject,
+  DemoBoard,
+  DemoSetupResponse,
 } from '../types';
 
 const DEFAULT_BASE = 'http://127.0.0.1:8765';
@@ -224,5 +227,18 @@ export const apiAiGenerateCandidate = (
 
 export const apiGetAIProviders = () =>
   get<{ providers: AIProviderInfo[] }>('/api/ai/providers');
+
+// ---- Demo Projects & Virtual Hardware ----
+export const apiListDemoProjects = () =>
+  get<DemoProject[]>('/api/demo/projects');
+
+export const apiListDemoBoards = () =>
+  get<DemoBoard[]>('/api/demo/boards');
+
+export const apiSetupDemo = (boardId: string, projectId: string) =>
+  post<DemoSetupResponse>('/api/demo/setup', {
+    board_id: boardId,
+    project_id: projectId,
+  });
 
 export { ARISApiError };

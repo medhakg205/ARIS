@@ -33,6 +33,7 @@ from backend.api.routes_experiments import router as experiments_router
 from backend.api.routes_validation import router as validation_router
 from backend.api.routes_ai import router as ai_router
 from backend.api.routes_health import router as health_router
+from backend.api.routes_demo import router as demo_router
 
 
 @asynccontextmanager
@@ -81,6 +82,7 @@ app.include_router(experiments_router)
 app.include_router(validation_router)
 app.include_router(ai_router)
 app.include_router(health_router)
+app.include_router(demo_router)
 
 
 # Canonical WebSocket Endpoint: /ws/telemetry/{run_id}
