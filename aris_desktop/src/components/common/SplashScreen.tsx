@@ -1,79 +1,78 @@
 import React, { useState, useEffect } from 'react';
-import { Cpu, Zap, Activity } from 'lucide-react';
 
 interface SplashScreenProps {
   onFinish: () => void;
-  minDurationMs?: number;
 }
 
-export const SplashScreen: React.FC<SplashScreenProps> = ({
-  onFinish,
-  minDurationMs = 3200,
-}) => {
-  const [stage, setStage] = useState<number>(1); // 1: Hex Draw, 2: Monogram Ignite, 3: ARIS Reveal, 4: Subtitle, 5: FadeOut
+export const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
+  const [stage, setStage] = useState<number>(1); // 1: Hex Draw, 2: Monogram Ignite, 3: ARIS & Subtitle, 4: 90%->100% Welcome, 5: Smooth Dissolve
+  const [progress, setProgress] = useState<number>(0);
   const [statusText, setStatusText] = useState<string>('INITIALIZING RUNTIME CORE...');
 
   useEffect(() => {
-    // Stage 1 -> Stage 2: Ignite Monogram
+    // Initial start: progress climbs to 25%
+    const p1 = setTimeout(() => {
+      setProgress(25);
+    }, 150);
+
+    // Stage 1 -> 2 (700ms): Monogram Ignites, progress climbs to 60%
     const t1 = setTimeout(() => {
       setStage(2);
-      setStatusText('ENGAGING HARDWARE BUS MONITOR...');
+      setProgress(60);
+      setStatusText('ANALYZING EMBEDDED BUS REGISTERS...');
     }, 700);
 
-    // Stage 2 -> Stage 3: ARIS Brand Title Reveal
+    // Stage 2 -> 3 (1500ms): ARIS Title & Subtitle Reveal, progress reaches 90%
     const t2 = setTimeout(() => {
       setStage(3);
-      setStatusText('SYNCHRONIZING EMBEDDED DIAGNOSTICS...');
+      setProgress(90);
+      setStatusText('ENGAGING TELEMETRY & AI ENGINE...');
     }, 1500);
 
-    // Stage 3 -> Stage 4: Subtitle Full Form Reveal
+    // Stage 3 -> 4 (2400ms): Progress Hits 100% and WELCOME is announced
     const t3 = setTimeout(() => {
       setStage(4);
-      setStatusText('SYSTEM READY');
-    }, 2200);
+      setProgress(100);
+      setStatusText('WELCOME');
+    }, 2400);
 
-    // Stage 4 -> Stage 5: Dissolve Transition
+    // Stage 4 -> 5 (3500ms): Slow, graceful fade-out begins
     const t4 = setTimeout(() => {
       setStage(5);
-    }, minDurationMs);
+    }, 3600);
 
-    // Final Finish
+    // Final completion (4600ms): Main App revealed smoothly
     const t5 = setTimeout(() => {
       onFinish();
-    }, minDurationMs + 500);
+    }, 4600);
 
     return () => {
+      clearTimeout(p1);
       clearTimeout(t1);
       clearTimeout(t2);
       clearTimeout(t3);
       clearTimeout(t4);
       clearTimeout(t5);
     };
-  }, [minDurationMs, onFinish]);
-
-  const handleSkip = () => {
-    setStage(5);
-    setTimeout(onFinish, 200);
-  };
+  }, [onFinish]);
 
   return (
     <div
-      onClick={handleSkip}
-      className={`fixed inset-0 z-[9999] bg-[#0c0e12] flex flex-col items-center justify-center select-none cursor-pointer overflow-hidden transition-all duration-700 ease-out ${
-        stage === 5 ? 'opacity-0 scale-105 pointer-events-none' : 'opacity-100 scale-100'
+      className={`fixed inset-0 z-[9999] bg-[#0c0e12] flex flex-col items-center justify-center select-none overflow-hidden transition-all duration-1000 ease-in-out ${
+        stage === 5 ? 'opacity-0 scale-[1.03] pointer-events-none' : 'opacity-100 scale-100'
       }`}
     >
-      {/* Background Animated Engineering Grid & Glow */}
+      {/* Background Engineering Matrix Grid & Ambient Glow */}
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#161a2218_1px,transparent_1px),linear-gradient(to_bottom,#161a2218_1px,transparent_1px)] bg-[size:32px_32px] pointer-events-none" />
-      <div className="absolute w-[500px] h-[500px] rounded-full bg-[#00878a]/15 blur-[120px] pointer-events-none animate-pulse" />
+      <div className="absolute w-[540px] h-[540px] rounded-full bg-[#00878a]/18 blur-[130px] pointer-events-none animate-pulse" />
 
-      {/* Center Cinematic Logo Container */}
+      {/* Center Cinematic Container */}
       <div className="relative flex flex-col items-center z-10">
         {/* Animated Vector Logo */}
         <div className="relative w-36 h-36 sm:w-44 sm:h-44 flex items-center justify-center">
           <svg
             viewBox="0 0 200 200"
-            className="w-full h-full drop-shadow-[0_0_25px_rgba(0,196,199,0.35)]"
+            className="w-full h-full drop-shadow-[0_0_28px_rgba(0,196,199,0.38)]"
             fill="none"
           >
             <defs>
@@ -104,11 +103,11 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
               strokeWidth="5"
               strokeLinejoin="round"
               filter="url(#splashGlow)"
-              className="transition-all duration-1000 ease-out fill-[#161a22]/80"
+              className="fill-[#161a22]/85"
               style={{
                 strokeDasharray: 450,
                 strokeDashoffset: stage >= 1 ? 0 : 450,
-                transition: 'stroke-dashoffset 0.9s ease-out',
+                transition: 'stroke-dashoffset 0.9s cubic-bezier(0.16, 1, 0.3, 1)',
               }}
             />
 
@@ -136,7 +135,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
             {/* Interlocking Monogram (A & R Circuit Traces) */}
             <g
               filter="url(#splashGlow)"
-              className={`transition-all duration-700 ease-out ${
+              className={`transition-all duration-800 ease-out ${
                 stage >= 2 ? 'opacity-100 scale-100' : 'opacity-0 scale-90'
               }`}
               style={{ transformOrigin: 'center' }}
@@ -197,7 +196,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
             stage >= 3 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
           }`}
         >
-          <h1 className="text-4xl sm:text-5xl font-extrabold tracking-[0.25em] text-transparent bg-clip-text bg-gradient-to-r from-white via-slate-100 to-teal-200 font-samsung drop-shadow-[0_2px_10px_rgba(0,196,199,0.3)]">
+          <h1 className="text-4xl sm:text-5xl font-extrabold tracking-[0.25em] text-transparent bg-clip-text bg-gradient-to-r from-white via-slate-100 to-teal-200 font-samsung drop-shadow-[0_2px_12px_rgba(0,196,199,0.35)]">
             ARIS
           </h1>
         </div>
@@ -205,40 +204,59 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
         {/* Subtitle Full Form Reveal */}
         <div
           className={`mt-2 text-center transition-all duration-700 transform ${
-            stage >= 4 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3'
+            stage >= 3 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3'
           }`}
         >
-          <p className="text-xs sm:text-sm font-medium tracking-[0.12em] text-[#00c4c7] uppercase font-sans">
+          <p className="text-xs sm:text-sm font-semibold tracking-[0.14em] text-[#00c4c7] uppercase font-sans">
             Arduino Runtime Intelligence System
           </p>
-          <p className="text-[10px] text-slate-500 font-mono tracking-widest mt-1">
+          <p className="text-[10px] text-slate-400 font-mono tracking-widest mt-1">
             ADVANCED MULTI-MCU PROFILER & AI OPTIMIZATION SUITE
           </p>
         </div>
 
-        {/* Micro System Diagnostics Ticker Bar */}
-        <div className="mt-8 flex flex-col items-center gap-2">
-          <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-white/[0.04] border border-white/[0.08] backdrop-blur-md">
-            <span className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-ping" />
-            <span className="font-mono text-[10px] text-slate-400 tracking-wider">
-              {statusText}
-            </span>
+        {/* Progress & Welcome Section */}
+        <div className="mt-8 flex flex-col items-center gap-3">
+          {/* Status Message / WELCOME Announcement */}
+          <div
+            className={`transition-all duration-500 flex items-center justify-center ${
+              stage >= 4
+                ? 'scale-110'
+                : 'scale-100'
+            }`}
+          >
+            {stage >= 4 ? (
+              <div className="flex items-center gap-2 px-5 py-1.5 rounded-full bg-teal-500/15 border border-teal-400/40 shadow-[0_0_20px_rgba(0,196,199,0.3)] animate-pulse">
+                <span className="w-2 h-2 rounded-full bg-[#00f0ff] shadow-sm shadow-[#00f0ff]" />
+                <span className="font-samsung font-bold text-sm text-transparent bg-clip-text bg-gradient-to-r from-white via-teal-200 to-[#00f0ff] tracking-[0.3em] uppercase">
+                  WELCOME
+                </span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-white/[0.04] border border-white/[0.08] backdrop-blur-md">
+                <span className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-ping" />
+                <span className="font-mono text-[10px] text-slate-300 tracking-wider">
+                  {statusText}
+                </span>
+              </div>
+            )}
           </div>
 
-          <div className="w-48 h-1 bg-white/[0.06] rounded-full overflow-hidden mt-1">
+          {/* Smooth 0 -> 90 -> 100% Progress Bar */}
+          <div className="w-56 h-1.5 bg-white/[0.06] rounded-full overflow-hidden p-0.5 border border-white/[0.06]">
             <div
-              className="h-full bg-gradient-to-r from-[#00878a] to-[#00f0ff] rounded-full transition-all duration-700 ease-out"
+              className="h-full bg-gradient-to-r from-[#00878a] via-[#00c4c7] to-[#00f0ff] rounded-full transition-all duration-800 ease-out shadow-[0_0_10px_rgba(0,240,255,0.4)]"
               style={{
-                width: stage === 1 ? '20%' : stage === 2 ? '50%' : stage === 3 ? '78%' : '100%',
+                width: `${progress}%`,
               }}
             />
           </div>
-        </div>
-      </div>
 
-      {/* Skip Hint */}
-      <div className="absolute bottom-6 text-[10px] font-mono text-slate-600 hover:text-slate-400 transition-colors">
-        Click anywhere to continue →
+          {/* Micro Progress Percentage */}
+          <div className="text-[10px] font-mono text-slate-400 tracking-widest">
+            {progress}%
+          </div>
+        </div>
       </div>
     </div>
   );

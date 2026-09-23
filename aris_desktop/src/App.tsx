@@ -68,7 +68,7 @@ export const App: React.FC = () => {
     <div className="flex flex-col h-screen w-screen bg-[#12151a] text-slate-200 overflow-hidden select-none relative">
       {/* Animated Startup Splash Screen */}
       {showSplash && (
-        <SplashScreen onFinish={() => setShowSplash(false)} minDurationMs={3000} />
+        <SplashScreen onFinish={() => setShowSplash(false)} />
       )}
 
       {/* Navigation Header */}
