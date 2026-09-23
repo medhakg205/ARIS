@@ -70,13 +70,21 @@ class SimulatedHardware:
         Starts the simulation thread generating periodic telemetry frames.
         """
         with self._lock:
-            if self.running:
-                return {"status": "ALREADY_RUNNING", "run_id": self.run_id, "mode": "DEMO MODE"}
-
             if run_id:
                 self.run_id = run_id
             else:
                 self.run_id = f"ARIS-DEMO-{int(time.time())}"
+
+            if self.running:
+                self._uptime_ms = 0
+                self._sequence = 1
+                return {
+                    "status": "SIMULATION_STARTED",
+                    "run_id": self.run_id,
+                    "board_id": self.board_id,
+                    "mode": "DEMO MODE",
+                    "behavior": self.simulation_mode
+                }
 
             self.running = True
             self._stop_event.clear()

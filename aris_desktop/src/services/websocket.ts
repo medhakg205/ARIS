@@ -78,7 +78,33 @@ export class ARISWebSocket {
 
     this.ws.onmessage = (event) => {
       try {
-        const msg = JSON.parse(event.data as string) as WsMessage;
+        const parsed = JSON.parse(event.data as string);
+        let msg: WsMessage;
+
+        if (parsed.type && parsed.data) {
+          msg = parsed as WsMessage;
+        } else if (parsed.metric && parsed.protocol_version) {
+          msg = {
+            type: 'TELEMETRY_UPDATE',
+            data: parsed as TelemetrySample,
+            source: parsed.is_demo ? 'SIMULATOR' : 'PHYSICAL_HARDWARE',
+          };
+        } else if (parsed.error_code) {
+          msg = {
+            type: 'ERROR',
+            data: parsed as ArisError,
+            source: 'SYSTEM',
+          };
+        } else if (parsed.status && parsed.run_id) {
+          msg = {
+            type: 'RUN_STATUS',
+            data: parsed as RunRecord,
+            source: 'SYSTEM',
+          };
+        } else {
+          return;
+        }
+
         // Track sequence for out-of-order detection
         if (msg.type === 'TELEMETRY_UPDATE') {
           const sample = msg.data as TelemetrySample;

@@ -129,6 +129,21 @@ def start_run(run_id: str) -> Dict[str, Any]:
     simulator = get_simulator()
     if run.is_simulated or run.is_demo:
         simulator.set_board(run.board_id)
+        fw = (run.firmware_id or "").upper()
+        if "LED" in fw:
+            simulator.set_mode("blocking_delay", delay_ms=1000)
+        elif "ULTRASONIC" in fw:
+            simulator.set_mode("blocking_delay", delay_ms=35)
+        elif "TEMP" in fw:
+            simulator.set_mode("memory_pressure")
+        elif "PIR" in fw:
+            simulator.set_mode("high_isr")
+        elif "SERVO" in fw:
+            simulator.set_mode("blocking_delay", delay_ms=50)
+        elif "BUTTON" in fw:
+            simulator.set_mode("default")
+        else:
+            simulator.set_mode("blocking_delay", delay_ms=20)
         simulator.start(run_id=run_id)
 
     return run.model_dump()
