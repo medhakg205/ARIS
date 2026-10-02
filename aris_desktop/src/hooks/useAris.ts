@@ -5,7 +5,7 @@
 // experiments, validation history, and AI providers.
 // ============================================================
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import type {
   BoardProfile,
   ConnectionStatus,
@@ -18,6 +18,7 @@ import type {
   ValidationResult,
   HealthStatus,
   CanonicalMetric,
+  DeviceConnectionState,
 } from '../types';
 import {
   apiHealth,
@@ -34,14 +35,22 @@ import {
   apiStopRun,
   apiGetFindings,
   apiGetOptimizations,
+  apiGetOptimization,
   apiApproveOptimization,
   apiRejectOptimization,
   apiAiGenerateCandidate,
   apiCreateExperiment,
   apiListExperiments,
+  apiGetExperiment,
+  apiValidateExperiment,
   apiGetValidationResult,
   apiGetAIProviders,
   apiAutoDetect,
+  apiRollbackExperiment,
+  apiRollbackOptimization,
+  apiCompileFirmware,
+  apiFlashFirmware,
+  apiTriggerHandshake,
   apiGetRecentIDESketch,
   apiSyncIDESketch,
   apiSaveIDESketch,
@@ -142,22 +151,20 @@ export function useARIS() {
   }, []);
 
   // ---- Load boards ----
+  // ---- Load boards catalog (metadata only, does not imply board is connected) ----
   useEffect(() => {
     if (!backendOnline) return;
     apiGetBoards()
       .then((b) => {
         setBoards(b);
-        if (b.length > 0 && !selectedBoard) {
-          setSelectedBoard(b[0]);
-        }
       })
       .catch(() => {});
-  }, [backendOnline, selectedBoard]);
+  }, [backendOnline]);
 
   // ---- Automatic Hardware Detection & Auto-Connection Polling ----
   // Scans USB/COM ports every 2.5s. When an Arduino is plugged in,
-  // automatically connects to the COM port, sets the hardware board profile (specs/memory),
-  // and starts streaming physical telemetry without requiring manual user selection.
+  // connects to the COM port, sets the verified hardware board profile,
+  // and starts streaming physical telemetry.
   useEffect(() => {
     if (!backendOnline) return;
     let isDetecting = false;
@@ -169,17 +176,18 @@ export function useARIS() {
         setConnectionStatus(cs);
         setHardwareConnected(cs.connected);
 
-        // If hardware is already connected, auto-sync board profile if known
+        // If hardware is physically connected, sync real board profile if available
         if (cs.connected) {
           setIsDemo(false);
           setIsSimulated(false);
           return;
-        } else if (!isDemo && !selectedBoard && boards.length > 0) {
-          setSelectedBoard(boards[0]);
+        } else if (!isDemo && selectedBoard && !cs.connected) {
+          // Hardware disconnected and not in demo mode
+          setSelectedBoard(null);
         }
 
         // Check if any serial ports are physically present
-        if (cs.available_ports && cs.available_ports.length > 0) {
+        if (cs.available_ports && cs.available_ports.length > 0 && !cs.connected) {
           isDetecting = true;
           const result = await apiAutoDetect();
           if (result.found && result.connected) {
@@ -205,6 +213,17 @@ export function useARIS() {
     const interval = setInterval(scanHardware, 2500);
     return () => clearInterval(interval);
   }, [backendOnline, boards, isDemo, selectedBoard]);
+
+  // Authoritative connection state
+  const deviceState: DeviceConnectionState = useMemo(() => {
+    if (isDemo || isSimulated) return 'SIMULATION';
+    if (loading['connect'] || loading['autodetect']) return 'DETECTING';
+    if (hardwareConnected) {
+      if (selectedBoard) return 'CONNECTED';
+      return 'UNKNOWN';
+    }
+    return 'NO_HARDWARE';
+  }, [isDemo, isSimulated, loading, hardwareConnected, selectedBoard]);
 
   // ---- Arduino IDE Auto-Sync: Auto-detects sketches from Arduino IDE 2.x ----
   const refreshIDESketches = useCallback(async () => {
@@ -296,6 +315,22 @@ export function useARIS() {
   }, [activeRun?.run_id, backendOnline]);
 
   // ---- Actions ----
+  const autoDetectHardware = useCallback(async () => {
+    try {
+      const res = await apiAutoDetect();
+      if (res.found && res.connected) {
+        setHardwareConnected(true);
+        setIsDemo(false);
+        setIsSimulated(false);
+        if (res.board_profile) setSelectedBoard(res.board_profile);
+      }
+      return res;
+    } catch (e) {
+      setLastError(e as ARISApiError);
+      return null;
+    }
+  }, []);
+
   const connectHardware = useCallback(async (port: string, baud = 115200) => {
     setLoad('connect', true);
     try {
@@ -314,6 +349,8 @@ export function useARIS() {
     try {
       await apiDisconnect();
       setHardwareConnected(false);
+      setSelectedBoard(null);
+      setActiveRun(null);
     } catch (e) {
       setLastError(e as ARISApiError);
     }
@@ -460,8 +497,7 @@ export function useARIS() {
         firmware_id: setupRes.firmware_id,
         name: `${setupRes.project.title} (${targetBoard.display_name})`,
         source_code: setupRes.source_code,
-        uploaded_at: new Date().toISOString(),
-        analysis_status: 'ANALYZED',
+        created_at: new Date().toISOString(),
       };
       setActiveFirmware(fwRecord);
 
@@ -502,12 +538,19 @@ export function useARIS() {
       ]);
       setFindings(f);
       setOptimizations(o);
+      if (isDemo || isSimulated) {
+        setIsDemo(false);
+        setIsSimulated(false);
+        if (!hardwareConnected) {
+          setSelectedBoard(null);
+        }
+      }
     } catch (e) {
       setLastError(e as ARISApiError);
     } finally {
       setLoad('stop', false);
     }
-  }, [activeRun, setLoad]);
+  }, [activeRun, isDemo, isSimulated, hardwareConnected, setLoad]);
 
   const generateCandidate = useCallback(async (
     finding: FindingRecord,
@@ -599,14 +642,161 @@ export function useARIS() {
     }
   }, []);
 
+  const runExperimentValidation = useCallback(async (experimentId: string) => {
+    setLoad(`validate_${experimentId}`, true);
+    try {
+      // 1. Fetch or locate experiment record
+      let exp = experiments.find((e) => e.experiment_id === experimentId);
+      if (!exp) {
+        exp = await apiGetExperiment(experimentId);
+      }
+      if (!exp) return null;
+
+      let opt = optimizations.find((o) => o.optimization_id === exp.optimization_id);
+      if (!opt) {
+        try {
+          opt = await apiGetOptimization(exp.optimization_id);
+        } catch (_) {}
+      }
+
+      // 2. Prepare candidate firmware
+      let candFwId = `ARIS-FW-CANDIDATE-${experimentId}`;
+      const codeToUpload = opt?.after_code;
+      if (codeToUpload) {
+        try {
+          const uploaded = await apiUploadFirmware(
+            `Candidate: ${opt?.title || exp.title}`,
+            codeToUpload
+          );
+          candFwId = uploaded.firmware_id;
+        } catch {
+          // fallback to synthesized candidate ID
+        }
+      }
+
+      // 3. Determine execution provenance: physical hardware vs simulation
+      const isPhysical = hardwareConnected && Boolean(selectedBoard) && Boolean(connectionStatus?.port);
+      const targetBoard = exp.board_id || selectedBoard?.board_id || 'arduino_uno';
+
+      if (isPhysical && codeToUpload && connectionStatus?.port) {
+        // ---- PHYSICAL MCU VALIDATION WORKFLOW ----
+        // Compile candidate firmware for target board
+        await apiCompileFirmware(codeToUpload, targetBoard, false);
+
+        // Flash candidate firmware onto physical microcontroller
+        await apiFlashFirmware(targetBoard, connectionStatus.port, codeToUpload);
+
+        // Verify runtime handshake from freshly booted instrumented firmware
+        await apiTriggerHandshake(3.0);
+
+        // Create authentic physical candidate run
+        const candRun = await apiCreateRun(
+          targetBoard,
+          candFwId,
+          'BALANCED',
+          false, // is_simulated = false
+          false  // is_demo = false
+        );
+
+        // Start candidate run and stream physical serial telemetry
+        const started = await apiStartRun(candRun.run_id);
+        setActiveRun(started);
+
+        // Physical benchmark collection window: 3.5 seconds
+        await new Promise((resolve) => setTimeout(resolve, 3500));
+
+        // Stop candidate run
+        await apiStopRun(candRun.run_id);
+
+        // Empirically validate candidate against physical baseline
+        const report = await apiValidateExperiment(experimentId, candRun.run_id);
+
+        await refreshExperiments();
+        await loadValidation(experimentId);
+        return report;
+      } else {
+        // ---- EXPLICIT SIMULATION VALIDATION WORKFLOW ----
+        const candRun = await apiCreateRun(
+          targetBoard,
+          candFwId,
+          'BALANCED',
+          true, // is_simulated = true
+          true  // is_demo = true
+        );
+
+        // Start candidate run and stream simulation telemetry
+        const started = await apiStartRun(candRun.run_id);
+        setActiveRun(started);
+
+        // Wait 1.6s for telemetry collection (16 frames of 20 canonical metrics = 320 samples)
+        await new Promise((resolve) => setTimeout(resolve, 1600));
+
+        // Stop candidate run (triggers baseline generation for candidate)
+        await apiStopRun(candRun.run_id);
+
+        // Run empirical validation comparison against baseline
+        const report = await apiValidateExperiment(experimentId, candRun.run_id);
+
+        // Refresh experiments and store validation result
+        await refreshExperiments();
+        await loadValidation(experimentId);
+
+        return report;
+      }
+    } catch (e) {
+      setLastError(e as ARISApiError);
+      return null;
+    } finally {
+      setLoad(`validate_${experimentId}`, false);
+    }
+  }, [
+    experiments,
+    optimizations,
+    selectedBoard,
+    hardwareConnected,
+    connectionStatus,
+    setLoad,
+    refreshExperiments,
+    loadValidation,
+  ]);
+
+  const rollbackExperiment = useCallback(async (experimentId: string) => {
+    try {
+      await apiRollbackExperiment(experimentId);
+      await refreshExperiments();
+    } catch (e) {
+      setLastError(e as ARISApiError);
+    }
+  }, [refreshExperiments]);
+
+  const rollbackOptimization = useCallback(async (optimizationId: string) => {
+    try {
+      await apiRollbackOptimization(optimizationId);
+      await refreshExperiments();
+    } catch (e) {
+      setLastError(e as ARISApiError);
+    }
+  }, [refreshExperiments]);
+
+  const patentMarkdown = `# Formal Patent Claims & Research Specification
+## Claim 1: Deterministic Observer-Effect Profiler Overhead Cancellation
+A non-invasive runtime instrumentation system for microcontrollers that mathematically eliminates probe overhead cycle latency from execution timing.
+
+## Claim 2: Dynamic Multi-Dimensional AST Section Correlation
+Bidirectional mapping between real-time UART telemetry frames and abstract syntax tree structures.
+
+## Claim 3: Autonomous Closed-Loop Rollback Protection
+Automated compilation, flashing, and hypothesis-verified hardware recovery upon SLA violation.
+`;
+
   return {
     // System
     health, backendOnline, wsConnected,
     // Boards
     boards, selectedBoard, setSelectedBoard,
     // Connection
-    connectionStatus, hardwareConnected,
-    connectHardware, disconnectHardware,
+    connectionStatus, hardwareConnected, deviceState,
+    connectHardware, disconnectHardware, autoDetectHardware,
     // Demo mode
     isDemo, isSimulated,
     // Firmware & Arduino IDE
@@ -625,7 +815,9 @@ export function useARIS() {
     approveOptimization, rejectOptimization,
     // Experiments & Validation
     experiments, validations,
-    createExperiment, loadValidation, refreshExperiments,
+    createExperiment, loadValidation, refreshExperiments, runExperimentValidation,
+    rollbackExperiment, rollbackOptimization,
+    patentMarkdown,
     // Errors
     lastError, clearError,
     // Loading

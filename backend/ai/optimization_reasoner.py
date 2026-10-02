@@ -30,13 +30,7 @@ from backend.ai.prediction_engine import PredictionEngine
 
 
 class OptimizationReasoner:
-    """Architecture-aware reasoning engine for AVR microcontroller targets."""
-
-    AVR_PROFILES = {
-        "arduino_uno": {"mcu": "atmega328p", "arch": "avr8", "clock_mhz": 16, "sram_bytes": 2048, "flash_bytes": 32768, "has_perf_counters": False, "has_fpu": False},
-        "arduino_nano": {"mcu": "atmega328p", "arch": "avr8", "clock_mhz": 16, "sram_bytes": 2048, "flash_bytes": 32768, "has_perf_counters": False, "has_fpu": False},
-        "arduino_mega": {"mcu": "atmega2560", "arch": "avr8", "clock_mhz": 16, "sram_bytes": 8192, "flash_bytes": 262144, "has_perf_counters": False, "has_fpu": False},
-    }
+    """Architecture-aware reasoning engine supporting AVR, ARM, ESP, and universal targets."""
 
     @classmethod
     def reason_and_synthesize(cls, context: AIContextInput, finding: Dict[str, Any]) -> Dict[str, Any]:
@@ -44,8 +38,17 @@ class OptimizationReasoner:
         Executes the formal 7-step reasoning pipeline to produce a validated
         OptimizationCandidate dictionary.
         """
-        board_id = context.board_profile.get("board_id", "arduino_uno")
-        avr_spec = cls.AVR_PROFILES.get(board_id, cls.AVR_PROFILES["arduino_uno"])
+        board_prof = context.board_profile or {}
+        board_id = board_prof.get("board_id", "arduino_uno")
+        mcu = (board_prof.get("mcu") or "microcontroller").upper()
+        arch = (board_prof.get("architecture") or "avr8").lower()
+        clock_hz = board_prof.get("clock_hz") or 16_000_000
+        clock_mhz = max(1, clock_hz // 1_000_000)
+        cycles_per_ms = clock_hz // 1000
+        flash_bytes = board_prof.get("flash_bytes") or 32768
+        sram_bytes = board_prof.get("sram_bytes") or 2048
+        is_avr = "avr" in arch
+
         rule_id = finding.get("rule_id", "ARIS-001")
         finding_id = finding.get("finding_id", f"FIND-{uuid.uuid4().hex[:6].upper()}")
         opt_id = f"OPT-{uuid.uuid4().hex[:8].upper()}"
@@ -68,11 +71,12 @@ class OptimizationReasoner:
                 f"}}"
             )
             title = "Convert blocking delay() to non-blocking millis() state machine"
-            problem = f"delay({delay_ms}) busy-waits for {delay_ms}ms ({int(delay_ms * 16000)} CPU clock cycles), blocking the main loop."
+            total_burned_cycles = int(delay_ms * cycles_per_ms)
+            problem = f"delay({delay_ms}) busy-waits for {delay_ms}ms ({total_burned_cycles:,} CPU clock cycles), blocking the main loop."
             reason = "Yields execution cycles to allow concurrent loop iterations, lowering loop latency and jitter."
             hardware_consideration = (
-                f"On {avr_spec['mcu'].upper()} (16MHz, no OS/threads), delay() burns 16,000 instructions per ms in an empty loop. "
-                "Non-blocking millis() leverages hardware Timer0 overflow ticks without blocking CPU execution."
+                f"On {mcu} ({clock_mhz}MHz, no OS/threads), delay() burns {cycles_per_ms:,} instructions per ms in an empty loop. "
+                "Non-blocking millis() leverages hardware timer overflow ticks without blocking CPU execution."
             )
             confidence = 0.94
 
@@ -90,21 +94,64 @@ class OptimizationReasoner:
             problem = "Unthrottled Serial.print in loop() overflows the 64-byte hardware UART ring buffer."
             reason = "Limits serial transmission frequency, preventing UART interrupt saturation and CPU stalling."
             hardware_consideration = (
-                f"{avr_spec['mcu'].upper()} USART has only a 64-byte TX buffer. When saturated, Serial.write() "
+                f"{mcu} USART has a limited hardware/driver TX buffer. When saturated, Serial.write() "
                 "blocks synchronously until buffer space is freed by the UART TX Complete ISR."
             )
             confidence = 0.91
 
-        elif rule_id in ("ARIS-003", "ARIS-005"):
+        elif rule_id == "ARIS-003":
+            # Blocking hardware polling or pulseIn wait
+            call_type = evidence.get("call", "")
+            if "pulseIn" in call_type:
+                before_code = "long duration = pulseIn(ECHO_PIN, HIGH);"
+                after_code = (
+                    "// Non-blocking Timer Input Capture or Pin Change ISR\n"
+                    "// Triggered via hardware interrupt — zero CPU busy-wait stall\n"
+                    "static volatile uint32_t echo_start = 0;\n"
+                    "static volatile uint32_t echo_duration = 0;\n"
+                    "void echoPinISR() {\n"
+                    "    if (PIND & (1 << PD2)) echo_start = micros();\n"
+                    "    else echo_duration = micros() - echo_start;\n"
+                    "}"
+                )
+                title = "Replace blocking pulseIn() with non-blocking hardware interrupt capture"
+                problem = "pulseIn() executes a synchronous busy-wait loop, stalling the MCU core for up to 30,000µs."
+                reason = "Recovers up to 99% of idle core CPU cycles during sensor pulse reflections."
+                hardware_consideration = (
+                    f"On {mcu}, hardware external interrupts or PCINT service "
+                    f"pin state transitions in a few clock cycles without burning {int(30 * cycles_per_ms):,} instruction cycles in polling."
+                )
+                confidence = 0.93
+            else:
+                before_code = "while (digitalRead(PIN) == LOW) { /* spin */ }"
+                after_code = (
+                    "// Non-blocking state transition check using pin change flag\n"
+                    "if (pin_state_changed) {\n"
+                    "    pin_state_changed = false;\n"
+                    "    process_event();\n"
+                    "}"
+                )
+                title = "Refactor synchronous spin-lock polling into event-driven interrupt notification"
+                problem = "Tight while loop polling pin states consumes 100% CPU time without yielding."
+                reason = "Frees MCU to execute core loop tasks while awaiting asynchronous hardware events."
+                hardware_consideration = (
+                    f"{mcu} supports Pin Change / External Interrupts across I/O pins, "
+                    "enabling true zero-latency event notification without CPU spin-waiting."
+                )
+                confidence = 0.90
+
+        elif rule_id == "ARIS-005":
             # Non-PROGMEM RAM string literal
             before_code = 'Serial.print("System Status Initialized Successfully");'
             after_code = 'Serial.print(F("System Status Initialized Successfully"));'
             title = "Store string literals in Flash ROM using F() macro"
             problem = "String literals declared without F() or PROGMEM are copied into precious SRAM at boot."
             reason = "Reduces SRAM consumption, preventing stack/heap collision and memory corruption."
+            flash_kb = flash_bytes // 1024 if flash_bytes else 32
+            sram_kb = sram_bytes // 1024 if sram_bytes else 2
             hardware_consideration = (
-                f"Under the AVR Harvard architecture, Flash program memory ({avr_spec['flash_bytes'] // 1024}KB) is separate from "
-                f"SRAM ({avr_spec['sram_bytes'] // 1024}KB). The F() macro uses the LPM instruction to read directly from Flash."
+                f"Flash program memory ({flash_kb}KB) is separate from SRAM ({sram_kb}KB). "
+                "The F() macro / PROGMEM directive stores string tables in Flash, keeping SRAM free."
             )
             confidence = 0.96
 
@@ -114,10 +161,10 @@ class OptimizationReasoner:
             after_code = "uint32_t calculated_val_mv = ((uint32_t)raw_adc * 5000UL) >> 10;"
             title = "Replace 32-bit software float arithmetic with fixed-point integer math"
             problem = "Software emulation of IEEE 754 32-bit floats consumes 60-120 clock cycles per operation."
-            reason = "Integer arithmetic executes in 1-2 AVR instruction cycles, accelerating loop frequency."
+            reason = "Integer arithmetic executes in 1-2 instruction cycles, accelerating loop frequency."
             hardware_consideration = (
-                f"{avr_spec['mcu'].upper()} has an 8-bit RISC ALU without a hardware FPU. Floating point math is "
-                "synthesized in software, bloating Flash by ~1.5KB and burning hundreds of clock cycles."
+                f"{mcu} lacks a dedicated double-precision FPU. Floating point math is "
+                "synthesized in software, bloating Flash and burning hundreds of clock cycles."
             )
             confidence = 0.88
 
@@ -127,11 +174,32 @@ class OptimizationReasoner:
             after_code = "PORTB |= (1 << PB5); // Direct port register write (Pin 13 on Uno/Nano)"
             title = "Replace digitalWrite() with atomic direct port register manipulation"
             problem = "digitalWrite() performs multiple lookup operations, consuming ~56 clock cycles (3.5 µs)."
-            reason = "Direct port write executes in 1-2 clock cycles (62.5 - 125 ns), cutting GPIO latency by 96%."
+            reason = "Direct port write executes in 1-2 clock cycles, cutting GPIO latency significantly."
             hardware_consideration = (
-                f"AVR SBI/CBI instructions set or clear bits in I/O registers atomically in 1 clock cycle at 16MHz."
+                f"Direct port register manipulation modifies I/O bits atomically in 1-2 clock cycles at {clock_mhz}MHz."
             )
             confidence = 0.89
+
+        elif rule_id == "ARIS-008":
+            # Transcendental math on FPU-less core
+            fn_name = evidence.get("function", "log")
+            before_code = f"float result = {fn_name}(analogRead(A0) / 100.0);"
+            after_code = (
+                "// 16-point PROGMEM lookup table with Q8 fixed-point interpolation\n"
+                "static const uint16_t MATH_LUT_Q8[16] PROGMEM = {\n"
+                "    256, 312, 381, 465, 567, 692, 845, 1031,\n"
+                "    1258, 1536, 1874, 2287, 2792, 3408, 4160, 5078\n"
+                "};\n"
+                "uint16_t val = pgm_read_word(&MATH_LUT_Q8[(raw_adc >> 6) & 0x0F]);"
+            )
+            title = f"Replace software {fn_name}() transcendental math with PROGMEM Lookup Table"
+            problem = f"{fn_name}() requires 400-600 software instruction cycles per evaluation on MCU without FPU."
+            reason = "Reduces transcendental evaluation from ~35µs down to 3 clock cycles via lookup table."
+            hardware_consideration = (
+                f"On {mcu}, lookup tables in Flash read directly into registers, "
+                "bypassing costly software math emulation entirely."
+            )
+            confidence = 0.92
 
         else:
             before_code = "// original code"
@@ -139,7 +207,7 @@ class OptimizationReasoner:
             title = f"Remediate {finding.get('title', 'Hardware Bottleneck')}"
             problem = finding.get("description", "MCU resource bottleneck detected.")
             reason = finding.get("recommended_action", "Apply embedded architecture best practices.")
-            hardware_consideration = f"Optimized for {avr_spec['mcu'].upper()} 16MHz AVR8 Harvard architecture."
+            hardware_consideration = f"Optimized for {mcu} {clock_mhz}MHz {arch.upper()} target."
             confidence = 0.85
 
         # 3. Hardware Constraint Check (strictly reject hallucinations)

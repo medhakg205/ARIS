@@ -277,7 +277,7 @@ export const CodeStudio: React.FC<CodeStudioProps> = ({
 
             {/* List of issues */}
             <div className="space-y-3 max-h-[380px] overflow-y-auto pr-1">
-              {staticReport?.antipatterns.map((ap) => (
+              {staticReport?.antipatterns.map((ap: any) => (
                 <div 
                   key={ap.id} 
                   className="p-3.5 rounded-xl bg-[#0a0d14] border border-slate-800 hover:border-cyan-500/40 transition group"

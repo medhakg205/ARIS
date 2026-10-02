@@ -23,7 +23,7 @@ export const InteractiveBoardVisualizer: React.FC<BoardVisualizerProps> = ({
   const isNano = boardDetail.id === 'arduino_nano';
 
   const currentPinState = pinStates[selectedPin];
-  const currentPinMapping = boardDetail.pins[selectedPin];
+  const currentPinMapping = (boardDetail.pins as any)?.[selectedPin];
 
   return (
     <div className="p-6 space-y-6 max-h-[calc(100vh-65px)] overflow-y-auto">
@@ -62,7 +62,7 @@ export const InteractiveBoardVisualizer: React.FC<BoardVisualizerProps> = ({
             <div className="absolute top-4 left-6 flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-amber-400 ring-2 ring-amber-400/30 animate-pulse" />
               <span className="font-extrabold text-sm font-mono tracking-widest text-cyan-200">
-                {boardDetail.name.toUpperCase()}
+                {(boardDetail.name || boardDetail.display_name || 'MCU BOARD').toUpperCase()}
               </span>
             </div>
 
@@ -175,7 +175,9 @@ export const InteractiveBoardVisualizer: React.FC<BoardVisualizerProps> = ({
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-xs font-mono">
                     <span className="text-slate-400">Analog Voltage (0-5V):</span>
-                    <span className="text-blue-400 font-bold">{((analogVal / 1023) * boardDetail.operating_voltage).toFixed(2)}V (ADC: {analogVal})</span>
+                    <span className="text-blue-400 font-bold">
+                      {((analogVal / 1023) * (typeof boardDetail.operating_voltage === 'number' ? boardDetail.operating_voltage : parseFloat(boardDetail.operating_voltage || '5.0'))).toFixed(2)}V (ADC: {analogVal})
+                    </span>
                   </div>
                   <input
                     type="range"

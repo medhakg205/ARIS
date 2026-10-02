@@ -29,31 +29,58 @@ class PredictionEngine:
             # Blocking delay elimination
             delay_ms = float(evidence.get("duration", 20.0))
             return {
+                "latency_delta_ms": -delay_ms,
                 "loop_time_delta_ms": -delay_ms,
                 "loop_time_predicted_unit": "ms",
+                "sram_delta_bytes": 4,  # static timestamp state
+                "flash_delta_bytes": 18,
                 "cpu_load_delta_pct": -min(85.0, delay_ms * 1.5),
                 "jitter_reduction_pct": 75.0,
+                "interrupt_risk": "LOW",
                 "classification": "PREDICTED",
                 "hardware_notes": f"Reclaims {int(delay_ms * 16000)} active wait clock cycles per loop execution."
             }
 
         elif rule_id == "ARIS-002":
             # Unthrottled serial transmission
+            bytes_saved = int(evidence.get("bytes", 24))
             return {
-                "uart_bytes_reduction_pct": 70.0,
+                "latency_delta_ms": -12.5,
                 "loop_time_delta_ms": -12.5,
+                "sram_delta_bytes": -bytes_saved,
+                "flash_delta_bytes": bytes_saved,
+                "uart_bytes_reduction_pct": 70.0,
                 "cpu_load_delta_pct": -25.0,
+                "interrupt_risk": "LOW",
                 "classification": "PREDICTED",
                 "hardware_notes": "Avoids TX ring buffer overflow stalls; lowers UART ISR invocation frequency."
             }
 
-        elif rule_id in ("ARIS-003", "ARIS-005"):
+        elif rule_id == "ARIS-003":
+            # Blocking hardware polling or pulseIn wait replaced by ISR
+            return {
+                "latency_delta_ms": -15.0,
+                "loop_time_delta_ms": -15.0,
+                "sram_delta_bytes": 8,   # volatile ISR state variables
+                "flash_delta_bytes": 42, # ISR vector trampoline + handler
+                "cpu_load_delta_pct": -40.0,
+                "interrupt_risk": "MEDIUM",
+                "classification": "PREDICTED",
+                "hardware_notes": "Recovers idle CPU cycles during sensor pulse reflections via hardware pin change ISR."
+            }
+
+        elif rule_id == "ARIS-005":
             # RAM strings / Dynamic memory -> Flash ROM
             bytes_saved = int(evidence.get("bytes", 32))
             return {
+                "latency_delta_ms": 0.0,
+                "loop_time_delta_ms": 0.0,
                 "sram_recovery_bytes": bytes_saved,
+                "sram_delta_bytes": -bytes_saved,
                 "flash_delta_bytes": bytes_saved,
+                "cpu_load_delta_pct": 0.0,
                 "heap_fragmentation_risk_eliminated": True,
+                "interrupt_risk": "LOW",
                 "classification": "PREDICTED",
                 "hardware_notes": f"Migrates {bytes_saved} string bytes from 2KB SRAM into 32KB Flash ROM via LPM instruction."
             }
@@ -61,9 +88,13 @@ class PredictionEngine:
         elif rule_id == "ARIS-004":
             # Software float math -> integer
             return {
+                "latency_delta_ms": -2.0,
                 "loop_time_delta_ms": -2.0,
+                "sram_delta_bytes": 0,
+                "flash_delta_bytes": -340,  # Eliminates software float emulation routines
                 "cpu_load_delta_pct": -15.0,
                 "instruction_cycles_saved": 85,
+                "interrupt_risk": "LOW",
                 "classification": "PREDICTED",
                 "hardware_notes": "Eliminates ~90 cycles of software float emulation per operation on AVR core."
             }
@@ -71,16 +102,38 @@ class PredictionEngine:
         elif rule_id == "ARIS-007":
             # Fast GPIO direct port access
             return {
-                "gpio_duration_saved_ns": 4000.0,  # 4us digitalWrite down to 62.5ns SBI
+                "latency_delta_ms": -0.5,
                 "loop_time_delta_ms": -0.5,
+                "gpio_duration_saved_ns": 4000.0,
+                "sram_delta_bytes": 0,
+                "flash_delta_bytes": -28,
+                "cpu_load_delta_pct": -2.0,
+                "interrupt_risk": "LOW",
                 "classification": "PREDICTED",
                 "hardware_notes": "Replaces 56-cycle digitalWrite() HAL dispatch with 1-cycle SBI/CBI opcode."
             }
 
+        elif rule_id == "ARIS-008":
+            # Transcendental math -> PROGMEM LUT
+            return {
+                "latency_delta_ms": -4.5,
+                "loop_time_delta_ms": -4.5,
+                "sram_delta_bytes": 0,
+                "flash_delta_bytes": 64,
+                "cpu_load_delta_pct": -30.0,
+                "interrupt_risk": "LOW",
+                "classification": "PREDICTED",
+                "hardware_notes": "Replaces 500-cycle math function with single-cycle PROGMEM table lookup."
+            }
+
         # Generic default
         return {
+            "latency_delta_ms": -1.0,
             "loop_time_delta_ms": -1.0,
+            "sram_delta_bytes": 0,
+            "flash_delta_bytes": 0,
             "cpu_load_delta_pct": -5.0,
+            "interrupt_risk": "LOW",
             "classification": "PREDICTED",
             "hardware_notes": "Conforms firmware routine to MCU clock and memory envelope."
         }

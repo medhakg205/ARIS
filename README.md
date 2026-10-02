@@ -1,72 +1,118 @@
-# ARIS (Arduino Runtime Intelligence System) v2.0 PRO
-### Standalone Desktop Application & Architecture-Aware Closed-Loop AI Optimization Framework for Arduino Microcontrollers
+# ARIS (Adaptive Runtime Intelligence System) v2.0
+
+### Production-Quality Runtime Observability, Physical Hardware Benchmarking & Closed-Loop AI Optimization Framework for Embedded Microcontrollers
 
 ---
 
-## 🌟 Overview & Innovation Summary
-**ARIS (Arduino Runtime Intelligence System)** is an advanced, non-intrusive runtime observability, multi-channel hardware-in-the-loop telemetry, and architecture-aware closed-loop AI optimization platform engineered specifically for resource-constrained microcontrollers:
-- **Arduino Uno (ATmega328P)**
-- **Arduino Mega 2560 (ATmega2560)**
-- **Arduino Nano Classic (ATmega328P)**
-- **Arduino Leonardo (ATmega32u4)**
-- **ESP32 WROOM (Xtensa 32-bit)**
-- **STM32 BluePill (ARM Cortex-M3)**
+## 🌟 Overview & System Highlights
+**ARIS (Adaptive Runtime Intelligence System)** is a comprehensive, non-intrusive runtime observability, multi-channel hardware-in-the-loop telemetry, and architecture-aware closed-loop optimization platform engineered specifically for resource-constrained microcontrollers:
+- **Arduino Uno R3 (ATmega328P @ 16MHz, AVR8)**
+- **Arduino Nano Classic (ATmega328P @ 16MHz, AVR8)**
+- **Arduino Mega 2560 R3 (ATmega2560 @ 16MHz, AVR8)**
+- *Cataloged Non-AVR Detection*: **Arduino Uno R4 WiFi / Minima (Renesas RA4M1 ARM Cortex-M4 @ 48MHz)** — explicitly distinguished to prevent false AVR8 optimization application.
 
-Unlike standard serial loggers or generic IDEs, ARIS introduces a **patent-worthy paradigm** combining **sub-1.5% overhead micro-instrumentation**, **calibrated cycle-subtraction observer compensation**, **static-dynamic AST correlation**, and **closed-loop empirical hardware benchmarking**.
-
----
-
-## 🔬 Core Patent Claims & Mathematical Foundations
-
-### 1. Observer-Effect Self-Compensating Micro-Instrumentation
-$$OIR = \frac{\Delta H_{\text{observed}}}{\tau_{\text{probe}} / \tau_{\text{cycle}}}$$
-* Eliminates profiler timing distortion on 8-bit AVR microcontrollers without hardware PMUs via calibrated instruction cycle subtraction ($T_{\text{actual}} = T_{\text{measured}} - \sum C_{\text{probe}}$).
-
-### 2. Multi-Dimensional Static-Dynamic AST Correlation
-* Real-time cross-referencing between dynamic UART/Timer telemetry packets and Flash ROM segments (`.text`, `.rodata`), C++ AST nodes, and hardware register mappings.
-
-### 3. Closed-Loop Architecture-Aware AI Optimization & Refactoring
-* Deterministic and LLM-assisted transforms targeting Harvard architecture constraints:
-  - **Blocking Delay Elimination**: Synchronous `delay(ms)` $\rightarrow$ asynchronous `millis()` delta timers (0 stalled cycles).
-  - **Direct Port Manipulation**: HAL `digitalWrite()` (56 cycles) $\rightarrow$ direct AVR register writes (`PORTB |= (1 << PB5)`) (1 cycle, 98.2% latency reduction).
-  - **PROGMEM String Interning**: Wraps literals in `F()` macro to eliminate SRAM starvation.
-  - **Q15 Fixed-Point Conversion**: Replaces expensive 32-bit software float arithmetic with scaled integer math.
-  - **Fast ADC Prescaler Re-tuning**: Configures `ADCSRA` for 77k samples/sec SAR conversion.
+Unlike basic serial loggers or generic static linters, ARIS delivers a **closed-loop empirical optimization cycle**:
+$$\text{BASELINE} \longrightarrow \text{OPTIMIZATION CANDIDATE} \longrightarrow \text{BUILD} \longrightarrow \text{FLASH} \longrightarrow \text{RUN} \longrightarrow \text{MEASURE} \longrightarrow \text{COMPARE} \longrightarrow \text{DECIDE}$$
 
 ---
 
-## 🚀 Quick Start & Launching the Desktop Application
+## 🔬 Core Architectural Innovations
 
-### Launch Standalone Desktop App
-Simply double-click `start_aris.bat` or run:
+### 1. Multi-Source Board Discovery & Runtime Serial Handshake
+- Automatic host port scanning interrogating `arduino-cli board list --format json`, USB Vendor/Product IDs (VID/PID), USB-UART bridge chips (CH340, CP2102, FTDI), and active serial handshakes.
+- Detection confidence classification: `CONFIRMED`, `HIGH_CONFIDENCE`, `UNCERTAIN`, `UNKNOWN`.
+- Active bidirectional handshake: host sends `$ARIS_HELLO#`; firmware responds with `$ARIS_ACK,<runtime_ver>,<protocol_ver>,<board_id>,<mcu>,<arch>,<clock_hz>,<mode>#`.
+
+### 2. Native Toolchain Build & Flash Engine (`arduino-cli`)
+- Discovers system or bundled Arduino IDE 2.x `arduino-cli` binary.
+- Compiles sketches targeting canonical FQBNs (`arduino:avr:uno`, `arduino:avr:nano`, `arduino:avr:mega`) with `--format json --export-binaries`.
+- Automatically extracts Flash (`.text`, `.data`) and SRAM (`.data`, `.bss`) allocations directly from compiler memory section maps.
+- Uploads compiled binaries to target physical COM ports via `arduino-cli upload`.
+- Deterministic simulation fallback available when physical compilers are not present.
+
+### 3. Strict Telemetry Provenance Invariants
+- Real hardware runs ingested with `is_demo=False` and verified serial origins.
+- Demo and virtual simulation runs tagged with `is_demo=True`.
+- Ingestion enforces session registration (rejects uninitialized `run_id` without implicit database creation).
+- `BaselineEngine` computes statistical distributions (mean, median, variance, jitter) strictly over observed measurements.
+
+### 4. Multi-Objective AI Optimization Engine & Rollback
+- Generates architecture-aware optimizations tailored to 8-bit AVR Harvard constraints (no caches, no FPUs, 62.5ns clock cycles).
+- Exposes explicit multi-objective trade-offs:
+  - Latency delta (`latency_delta_ms` / `loop_time_delta_ms`)
+  - SRAM delta (`sram_delta_bytes`)
+  - Flash delta (`flash_delta_bytes`)
+  - CPU load delta (`cpu_load_delta_pct`)
+  - Interrupt risk evaluation (`LOW`, `MEDIUM`, `HIGH`)
+- Automated rollback endpoints (`POST /api/experiments/{id}/rollback`, `POST /api/optimizations/{id}/rollback`) restoring known-good baseline configurations on regression.
+
+---
+
+## 🚀 Running the System
+
+### 1. Backend REST & WebSocket Server
 ```bash
-# 1. Start Python Core Backend
-python aris_core\api_server.py
+# In the root repository:
+python -m uvicorn backend.api.app:app --host 127.0.0.1 --port 8765
+```
 
-# 2. In another terminal, launch Electron Desktop GUI
-cd aris_desktop
-npx electron .
+### 2. Frontend Desktop Application (React 18 + Vite + Tailwind)
+```bash
+# In aris_desktop/:
+npm install
+npm run dev      # For interactive development on http://localhost:5173
+npm run build    # For production bundle (dist/)
+```
+
+### 3. Running All Tests (101 Passing Tests)
+```bash
+# Backend test suite (80 tests):
+python -m pytest backend/tests
+
+# Embedded runtime test suite (21 tests):
+python -m pytest embedded/tests
 ```
 
 ---
 
-## 📁 System Architecture
+## 📁 Repository Structure
 ```
 aris-studio/
-├── aris_core/                     # High-Performance Python Analysis & Simulation Engine
-│   ├── hardware_profiles.py       # Hardware specs & register maps for Uno, Mega, Nano, etc.
-│   ├── analyzer/                  # Static AST & ELF memory section analyzer
-│   ├── instrumenter/              # Automated probe weaver & bias compensator
-│   ├── simulator/                 # Cycle-accurate virtual AVR multi-MCU simulator
-│   ├── optimizer/                 # Rule synthesizer & architecture-aware AI advisor
-│   ├── patent/                    # Mathematical formulas & IEEE report generator
-│   ├── telemetry/                 # Physical USB/COM serial bridge
-│   └── api_server.py              # FastAPI / WebSocket IPC server
+├── backend/                       # Python Backend Engine
+│   ├── ai/                        # Reasoner, Prediction Engine, Risk Evaluator
+│   ├── analysis/                  # Static AST rules, Baseline Engine, Correlation
+│   ├── api/                       # FastAPI REST routes, error handlers, WebSockets
+│   ├── database/                  # SQLite models and DB engine (aris.db)
+│   ├── experiments/               # Closed-loop validation & experiment engine
+│   ├── firmware/                  # Board profiles & BuildFlasher (arduino-cli)
+│   ├── serial/                    # Port discovery, serial manager, handshake
+│   ├── simulator/                 # Virtual hardware MCU emulator
+│   ├── telemetry/                 # Fast micro-framer & ingestion validator
+│   └── tests/                     # 80 backend unit & integration test suites
 │
-├── aris_desktop/                  # Native Desktop Application (Electron + React 18 + Vite + Tailwind)
-│   ├── electron/                  # Electron main & preload process
-│   └── src/                       # React 18 UI components, gauges, oscilloscopes & board visualizers
+├── embedded/                      # Microcontroller C++ Runtime
+│   ├── aris_runtime.h / .cpp      # Core embedded timing, probes, and watermark
+│   ├── board_adapters/            # Hardware-specific register abstraction
+│   ├── encoder/                   # Fast ASCII serial micro-framer
+│   └── tests/                     # 21 embedded C++ / Python test suites
 │
-├── examples/                      # Pre-loaded Benchmark & Antipattern Sketches
-└── start_aris.bat                 # One-Click Desktop Launcher
+├── aris_desktop/                  # Frontend User Interface
+│   ├── src/                       # React 18 dashboard, visualizer, candidate workbench
+│   └── dist/                      # Minified production build
+│
+├── examples/                      # Real AVR Arduino sketches with bottlenecks
+├── build_artifacts/               # Exported .hex binaries and compiler logs
+├── INTEGRATION_CONTRACT.md        # Binding architectural invariants (v2.0)
+└── README.md                      # Project documentation
 ```
+
+---
+
+## 🔌 Hardware Verification Procedure (Physical Setup)
+If physical Arduino hardware is connected:
+1. Connect target board (e.g. Arduino Uno R3) via USB.
+2. Verify detection via `GET /api/connection/ports`:
+   - Official boards will report `confidence: "HIGH_CONFIDENCE"` or `"CONFIRMED"`.
+3. Ingest baseline telemetry from instrumented firmware (`examples/`).
+4. Apply candidate optimization in the ARIS Studio UI.
+5. Trigger closed-loop validation to compile, flash, and record empirical hardware deltas.

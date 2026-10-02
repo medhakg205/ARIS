@@ -4,7 +4,7 @@
 // Shows timeline charts, metric cards, runtime events, connection state.
 // ============================================================
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from 'recharts';
@@ -94,17 +94,17 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
   }
 
   return (
-    <div className="flex flex-col h-full overflow-auto p-4 sm:p-5 gap-3.5 max-w-7xl mx-auto w-full">
-      {/* Realtime Telemetry Telemetry Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-[#22272e] border border-white/[0.08] rounded-xl px-4 py-2.5 shadow-sm">
+    <div className="flex flex-col h-full overflow-y-auto p-3.5 sm:p-4 gap-3 max-w-7xl mx-auto w-full">
+      {/* Realtime Telemetry Status Bar */}
+      <div className="flex items-center justify-between gap-3 bg-[#1e232b] border border-white/[0.08] rounded-xl px-4 py-2.5 shadow-sm shrink-0">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
             {wsConnected ? (
               <>
                 <div className="relative flex items-center justify-center">
-                  <div className="w-2 h-2 rounded-full bg-[#00878a]" />
+                  <span className="w-2 h-2 rounded-full bg-[#00878a] shadow-sm shadow-[#00878a] animate-pulse" />
                 </div>
-                <span className="text-xs font-medium text-slate-200 font-sans">Telemetry Stream Active</span>
+                <span className="text-xs font-semibold text-slate-100 font-sans">Telemetry Stream Active</span>
               </>
             ) : (
               <>
@@ -114,13 +114,13 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
             )}
           </div>
 
-          <div className="w-px h-4 bg-white/[0.08]" />
+          <div className="w-px h-3.5 bg-white/[0.08]" />
           <span className="text-xs text-slate-400 font-sans">
-            Session: <span className="font-mono text-slate-200">{activeRun.run_id}</span>
+            Session: <span className="font-mono text-slate-200 font-semibold">{activeRun.run_id}</span>
           </span>
 
-          <div className="w-px h-4 bg-white/[0.08]" />
-          <span className="text-xs px-2 py-0.5 rounded bg-white/[0.04] border border-white/[0.06] text-slate-300 font-mono font-medium">
+          <div className="w-px h-3.5 bg-white/[0.08]" />
+          <span className="text-[11px] px-2 py-0.5 rounded bg-white/[0.04] border border-white/[0.08] text-emerald-300 font-mono font-semibold">
             {activeRun.status}
           </span>
         </div>
@@ -128,7 +128,7 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
         <div className="flex items-center gap-3">
           <span className="text-xs font-mono text-slate-400">Frame #{seqCount}</span>
           {isDemo && (
-            <span className="text-[10px] font-medium px-2 py-0.5 border border-[#00878a]/30 bg-[#00878a]/10 text-teal-300 rounded">
+            <span className="text-[10px] font-semibold px-2 py-0.5 border border-[#00878a]/40 bg-[#00878a]/15 text-teal-300 rounded-md font-mono">
               SYNTHETIC / DEMO
             </span>
           )}
@@ -138,64 +138,78 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
                 onStopRun();
                 if (onNavigate) onNavigate('analysis');
               }}
-              className="px-3 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-mono rounded transition-colors"
+              className="px-3.5 py-1.5 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/40 text-xs font-mono font-semibold rounded-lg transition-all shadow-sm hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
             >
-              Stop & View Analysis →
+              Stop &amp; View Analysis →
             </button>
           )}
         </div>
       </div>
 
-      {/* Primary Oscilloscope Real-Time Charts Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {CHART_METRICS.map(({ key, label, color, classification }) => {
+      {/* Primary Oscilloscope Real-Time Charts Grid (2x2) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+      {CHART_METRICS.map(({ key, label, color, classification }) => {
           const history = telemetryHistory[key] || [];
+          const baseTime = history.length > 0 ? history[0].timestamp_ms : 0;
           const chartData = history.slice(-80).map((s) => ({
             t: s.timestamp_ms,
+            elapsed: Number(((s.timestamp_ms - baseTime) / 1000).toFixed(1)),
             v: s.value,
           }));
           const latest = latestSamples[key];
 
           return (
-            <div key={key} className="bg-[#22272e] border border-white/[0.08] rounded-xl p-4 shadow-sm">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs font-sans font-semibold text-slate-300 tracking-wider uppercase">{label}</span>
-                <span className="text-[10px] font-sans font-medium px-2 py-0.5 rounded border border-white/[0.08] bg-white/[0.04] text-slate-300">
+            <div key={key} className="bg-[#1e232b] border border-white/[0.08] hover:border-white/[0.14] rounded-xl p-3.5 shadow-sm flex flex-col justify-between transition-all">
+              {/* Card Header Row */}
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-baseline gap-2.5">
+                  <span className="text-xs font-sans font-semibold text-slate-400 tracking-wider uppercase">{label}</span>
+                  {latest && (
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-xl sm:text-2xl font-sans font-bold text-white tabular-nums tracking-tight">
+                        {latest.value.toFixed(2)}
+                      </span>
+                      <span className="text-[11px] font-mono text-slate-400">{latest.unit}</span>
+                    </div>
+                  )}
+                </div>
+                <span className="text-[9.5px] font-sans font-semibold px-2 py-0.5 rounded-full border border-white/[0.08] bg-white/[0.04] text-slate-300 shrink-0">
                   {classification}
                 </span>
               </div>
 
-              {latest && (
-                <div className="flex items-baseline gap-1.5 mb-2">
-                  <span className="text-3xl font-sans font-bold text-white tabular-nums tracking-tight">
-                    {latest.value.toFixed(2)}
-                  </span>
-                  <span className="text-xs font-mono text-slate-400 font-medium">{latest.unit}</span>
-                </div>
-              )}
-
-              <div className="h-36 pt-2">
+              {/* Waveform Chart */}
+              <div className="h-28 sm:h-32 w-full pt-1">
                 {chartData.length > 1 ? (
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={chartData}>
+                    <LineChart data={chartData} margin={{ top: 5, right: 8, left: -20, bottom: 2 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.04)" />
-                      <XAxis dataKey="t" hide />
-                      <YAxis
-                        width={35}
-                        tick={{ fontSize: 10, fill: '#64748b', fontFamily: 'monospace' }}
+                      <XAxis
+                        dataKey="elapsed"
+                        tick={{ fontSize: 9, fill: '#4a5568', fontFamily: 'monospace' }}
                         tickLine={false}
                         axisLine={false}
+                        tickFormatter={(v: number) => `${v}s`}
+                        interval="preserveStartEnd"
+                        minTickGap={30}
+                      />
+                      <YAxis
+                        width={40}
+                        tick={{ fontSize: 9.5, fill: '#64748b', fontFamily: 'monospace' }}
+                        tickLine={false}
+                        axisLine={false}
+                        domain={['auto', 'auto']}
                       />
                       <Tooltip
                         contentStyle={{
                           background: 'rgba(13, 17, 26, 0.95)',
                           border: '1px solid rgba(255, 255, 255, 0.1)',
-                          borderRadius: 12,
-                          fontFamily: 'sans-serif',
-                          fontSize: 12,
+                          borderRadius: 8,
+                          fontFamily: 'monospace',
+                          fontSize: 11,
                           boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5)'
                         }}
-                        labelFormatter={() => ''}
+                        labelFormatter={(val: number) => `T + ${val}s`}
                         formatter={(v: number) => [v.toFixed(3), label]}
                       />
                       <Line
@@ -220,11 +234,11 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
       </div>
 
       {/* Secondary Hardware Activity Probes */}
-      <div>
-        <h3 className="text-xs font-sans font-semibold text-slate-300 uppercase tracking-wider mb-3">
+      <div className="shrink-0 mt-0.5">
+        <h3 className="text-[11px] font-sans font-semibold text-slate-400 uppercase tracking-wider mb-2">
           Hardware Peripheral Probes
         </h3>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
           {LIVE_METRICS.map(({ key, label, unit, classification }) => {
             const s = latestSamples[key];
             return (

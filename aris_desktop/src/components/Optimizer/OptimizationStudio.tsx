@@ -93,7 +93,7 @@ export const OptimizationStudio: React.FC<OptimizationStudioProps> = ({
 
         {/* Applied Transforms Tags */}
         <div className="mt-4 pt-3 border-t border-slate-800/80 flex flex-wrap gap-2">
-          {optimizationResult.applied_transforms.map((t, idx) => (
+          {optimizationResult.applied_transforms.map((t: any, idx: number) => (
             <span 
               key={idx} 
               className="text-[11px] font-mono px-2.5 py-1 rounded-lg bg-purple-950/60 text-purple-200 border border-purple-800/50 flex items-center gap-1.5"
@@ -121,7 +121,7 @@ export const OptimizationStudio: React.FC<OptimizationStudioProps> = ({
           </div>
 
           <div className="grid grid-cols-5 gap-4">
-            {verificationReport.metrics.map((m, idx) => (
+            {verificationReport.metrics.map((m: any, idx: number) => (
               <div key={idx} className="p-4 rounded-xl bg-[#0a0d14] border border-slate-800 relative overflow-hidden">
                 <span className="text-[10px] font-mono text-slate-400 block truncate">{m.metric_name}</span>
                 <div className="flex items-baseline gap-1 mt-2">

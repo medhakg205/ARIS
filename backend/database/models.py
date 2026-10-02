@@ -20,23 +20,34 @@ from pydantic import BaseModel, Field
 class BoardRecord(BaseModel):
     """
     Persistent model representing a microcontroller target board.
-    Stores immutable hardware constraints, register layouts, and capabilities.
+    Stores hardware constraints, register layouts, and capabilities.
+    Supports dynamically discovered/derived boards with nullable fields
+    and explicit unavailable_properties list.
     """
-    board_id: str                      # Canonical ID: e.g. "arduino_uno", "arduino_nano", "arduino_mega"
+    board_id: str                      # Canonical or derived ID: e.g. "arduino_uno", "arduino_nano", "fqbn_..."
     display_name: str                  # Human readable name: e.g. "Arduino Uno"
-    mcu: str                           # Microcontroller chip: e.g. "atmega328p", "atmega2560"
-    architecture: str                  # Core architecture: e.g. "avr8"
-    clock_hz: int                      # System clock frequency in Hertz (16 MHz = 16_000_000)
-    flash_bytes: int                   # Non-volatile Program Flash memory capacity in bytes
-    sram_bytes: int                    # Internal static RAM memory capacity in bytes
-    eeprom_bytes: int                  # Electrically erasable programmable memory in bytes
-    gpio_count: int                    # Total accessible general-purpose digital I/O pins
-    adc_channels: int                  # Total analog-to-digital converter channels
-    uart_count: int                    # Number of dedicated hardware serial UART peripherals
-    spi_available: bool                # Indicates SPI peripheral availability
-    i2c_available: bool                # Indicates Two-Wire Interface (I2C) peripheral availability
-    timer_count: int                   # Number of internal hardware timers/counters
-    interrupt_capabilities: List[str]  # List of hardware interrupt vectors supported
+    mcu: Optional[str] = None          # Microcontroller chip: e.g. "atmega328p", "atmega2560", "ra4m1"
+    architecture: Optional[str] = None # Core architecture: e.g. "avr8", "arm_cortex_m4", "esp32"
+    clock_hz: Optional[int] = None     # System clock frequency in Hertz (16 MHz = 16_000_000)
+    flash_bytes: Optional[int] = None  # Non-volatile Program Flash memory capacity in bytes
+    sram_bytes: Optional[int] = None   # Internal static RAM memory capacity in bytes
+    eeprom_bytes: Optional[int] = None # Electrically erasable programmable memory in bytes
+    gpio_count: Optional[int] = None   # Total accessible general-purpose digital I/O pins
+    adc_channels: Optional[int] = None # Total analog-to-digital converter channels
+    uart_count: Optional[int] = None   # Number of dedicated hardware serial UART peripherals
+    spi_available: Optional[bool] = None # Indicates SPI peripheral availability
+    i2c_available: Optional[bool] = None # Indicates Two-Wire Interface (I2C) peripheral availability
+    timer_count: Optional[int] = None  # Number of internal hardware timers/counters
+    interrupt_capabilities: List[str] = Field(default_factory=list) # List of hardware interrupt vectors supported
+    fqbn: Optional[str] = Field(default="")      # Fully Qualified Board Name (e.g. "arduino:avr:uno")
+    build_toolchain: str = Field(default="avr-gcc") # Compiler toolchain
+    supported: bool = Field(default=True)           # Whether ARIS provides automated optimization support
+    # Universal Discovery & Profile Resolution Fields
+    profile_source: str = Field(default="EXACT_PROFILE") # EXACT_PROFILE, TOOLCHAIN_DERIVED, RUNTIME_VERIFIED, PARTIALLY_RESOLVED, UNKNOWN
+    confidence: str = Field(default="HIGH")              # CONFIRMED, HIGH, MEDIUM, LOW, UNKNOWN, MISMATCH
+    unavailable_properties: List[str] = Field(default_factory=list) # List of properties not available for this board
+    platform: Optional[str] = None                       # Platform package e.g. "arduino:avr", "arduino:renesas_uno"
+    capabilities: Dict[str, Any] = Field(default_factory=dict) # Arbitrary hardware capabilities map
 
 
 class FirmwareRecord(BaseModel):

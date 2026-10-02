@@ -68,22 +68,52 @@ export interface TelemetrySample {
 }
 
 // ---- Board Profile ----
+export type BoardProfileSource =
+  | 'EXACT_PROFILE'
+  | 'TOOLCHAIN_DERIVED'
+  | 'RUNTIME_VERIFIED'
+  | 'PARTIALLY_RESOLVED'
+  | 'UNKNOWN';
+
+export type BoardConfidence =
+  | 'CONFIRMED'
+  | 'HIGH'
+  | 'MEDIUM'
+  | 'LOW'
+  | 'UNCERTAIN'
+  | 'UNKNOWN'
+  | 'MISMATCH';
+
 export interface BoardProfile {
   board_id: string;
   display_name: string;
-  mcu: string;
-  architecture: string;
-  clock_hz: number;
-  flash_bytes: number;
-  sram_bytes: number;
-  eeprom_bytes: number;
-  gpio_count: number;
-  adc_channels: number;
-  uart_count: number;
-  spi_available: boolean;
-  i2c_available: boolean;
-  timer_count: number;
-  interrupt_capabilities: string[];
+  mcu?: string | null;
+  architecture?: string | null;
+  clock_hz?: number | null;
+  flash_bytes?: number | null;
+  sram_bytes?: number | null;
+  eeprom_bytes?: number | null;
+  gpio_count?: number | null;
+  adc_channels?: number | null;
+  uart_count?: number | null;
+  spi_available?: boolean | null;
+  i2c_available?: boolean | null;
+  timer_count?: number | null;
+  interrupt_capabilities?: string[];
+  id?: string;
+  name?: string;
+  arch?: string | null;
+  clock_mhz?: number | null;
+  fqbn?: string | null;
+  pins?: any[];
+  mcu_model?: string;
+  operating_voltage?: string;
+  profile_source?: BoardProfileSource;
+  confidence?: BoardConfidence;
+  unavailable_properties?: string[];
+  platform?: string | null;
+  capabilities?: Record<string, any>;
+  supported?: boolean;
 }
 
 // ---- Firmware ----
@@ -191,10 +221,35 @@ export interface OptimizationCandidate {
   confidence: number;
   validation_required: boolean;
   status: OptimizationStatus;
+
+  // ARIS 2.0 Hardware-Aware additions (optional for backwards compatibility)
+  candidate_id?: string;
+  transformation_id?: string;
+  transformation_category?: string;
+  rationale?: string;
+  trade_offs_explained?: Record<string, string>;
+  resource_impact?: {
+    flash_headroom_bytes_remaining?: number;
+    sram_headroom_bytes_remaining?: number;
+    flash_utilization_pct?: number;
+    sram_utilization_pct?: number;
+    budget_explanation?: string;
+  };
+  uncertainty?: {
+    lower_bound_pct?: number;
+    upper_bound_pct?: number;
+    confidence_score?: number;
+    is_high_uncertainty?: boolean;
+  };
+  approval?: {
+    decision?: 'PENDING' | 'APPROVED' | 'REJECTED';
+    decided_by?: string;
+    reason?: string;
+  };
 }
 
 // ---- Experiments ----
-export type ExperimentStatus = 'CREATED' | 'RUNNING' | 'COMPLETED' | 'VALIDATED' | 'FAILED';
+export type ExperimentStatus = 'CREATED' | 'RUNNING' | 'COMPLETED' | 'VALIDATED' | 'FAILED' | 'ROLLED_BACK' | 'SUCCESS';
 
 export interface ExperimentRecord {
   experiment_id: string;
@@ -205,7 +260,26 @@ export interface ExperimentRecord {
   optimization_id: string;
   status: ExperimentStatus;
   validation_id?: string;
+  is_simulated?: boolean;
+  is_demo?: boolean;
   created_at: string;
+  id?: string;
+  name?: string;
+  result_summary?: {
+    latency_improvement_pct?: number;
+    cpu_load_reduction_pct?: number;
+    sram_reduction_pct?: number;
+    flash_reduction_pct?: number;
+    baseline_loop_ms?: number;
+    candidate_loop_ms?: number;
+    baseline_cpu_pct?: number;
+    candidate_cpu_pct?: number;
+    baseline_sram_bytes?: number;
+    candidate_sram_bytes?: number;
+    baseline_flash_bytes?: number;
+    candidate_flash_bytes?: number;
+    [key: string]: any;
+  };
 }
 
 // ---- Validation ----
@@ -276,15 +350,31 @@ export interface AIContextInput {
 }
 
 // ---- Connection Status ----
+export type DeviceConnectionState =
+  | 'NO_HARDWARE'
+  | 'DETECTING'
+  | 'CONNECTED'
+  | 'DISCONNECTED'
+  | 'UNKNOWN'
+  | 'UNCERTAIN'
+  | 'SIMULATION';
+
 export interface DiscoveredPortInfo {
   device: string;
   description: string;
+  display_name?: string;
   hwid: string;
   vid?: string;
   pid?: string;
   manufacturer?: string;
   is_arduino: boolean;
   suggested_board_id?: string;
+  mcu?: string | null;
+  architecture?: string | null;
+  fqbn?: string | null;
+  confidence?: BoardConfidence;
+  profile_source?: BoardProfileSource;
+  unavailable_properties?: string[];
 }
 
 export interface ConnectionStatus {
@@ -296,6 +386,9 @@ export interface ConnectionStatus {
   discovered_ports?: DiscoveredPortInfo[];
   simulator_active?: boolean;
   mode?: string;
+  board_profile?: BoardProfile | null;
+  identity_mismatch?: boolean;
+  mismatch_reason?: string | null;
 }
 
 // ---- Health ----
@@ -323,6 +416,9 @@ export interface AIProviderInfo {
   provider_id: string;
   display_name: string;
   available: boolean;
+  id?: string;
+  name?: string;
+  status?: string;
 }
 
 // ---- Demo Projects ----
@@ -355,4 +451,91 @@ export interface DemoSetupResponse {
   board_id: string;
   source_code: string;
 }
+
+export type HardwareProfile = BoardProfile;
+export type Experiment = ExperimentRecord;
+export interface TelemetryFrame {
+  protocol_version?: '1.0';
+  run_id?: string;
+  board_id?: string;
+  mcu?: string;
+  timestamp_ms: number;
+  sequence?: number;
+  metric?: CanonicalMetric;
+  value?: number;
+  unit?: string;
+  classification?: MetricClassification;
+  confidence?: number;
+  is_demo?: boolean;
+  cpu_compensated_pct: number;
+  loop_duration_us: number;
+  power_consumption_mw: number;
+  used_sram_bytes: number;
+  stack_high_watermark_bytes: number;
+  cpu_utilization_pct: number;
+  observer_overhead_pct: number;
+  free_sram_bytes: number;
+  loop_frequency_hz: number;
+  jitter_us: number;
+  isr_frequency_hz?: number;
+  adc_conversions_sec?: number;
+  gpio_toggles_sec?: number;
+  active_current_ma?: number;
+  raw_packet?: string;
+  [key: string]: any;
+}
+
+export interface TelemetryStats {
+  mean?: number;
+  median?: number;
+  p95?: number;
+  p99?: number;
+  min?: number;
+  max?: number;
+  jitter?: number;
+  variance?: number;
+  sample_count?: number;
+  [key: string]: any;
+}
+
+export interface StaticAnalysisReport {
+  timestamp?: string;
+  findings?: FindingRecord[];
+  anti_patterns?: any[];
+  [key: string]: any;
+}
+
+export interface VirtualPinState {
+  pin: number | string;
+  mode: string;
+  state: number | boolean;
+  pwm_value?: number;
+  [key: string]: any;
+}
+
+export interface FirmwareMemoryMap {
+  flash_used?: number;
+  flash_total?: number;
+  sram_used?: number;
+  sram_total?: number;
+  sections?: any[];
+  [key: string]: any;
+}
+
+export interface AIOptimizationResult {
+  optimization_id?: string;
+  candidate?: OptimizationCandidate;
+  candidates?: OptimizationCandidate[];
+  summary?: string;
+  [key: string]: any;
+}
+
+export interface ClosedLoopVerificationReport {
+  experiment_id?: string;
+  status?: string;
+  metrics?: any;
+  deltas?: any;
+  [key: string]: any;
+}
+
 

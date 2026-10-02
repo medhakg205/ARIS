@@ -84,19 +84,30 @@ class RuleEvaluator:
             for match in pattern.finditer(line):
                 fn = match.group(1)
                 duration = int(match.group(2))
-                sev = "CRITICAL" if (fn == "delay" and duration >= 50) else "HIGH" if (fn == "delay" and duration > 5) else "MEDIUM"
+                if fn == "delay":
+                    if duration >= 100:
+                        sev = "CRITICAL"
+                    elif duration >= 50:
+                        sev = "HIGH"
+                    elif duration >= 20:
+                        sev = "MEDIUM"
+                    else:
+                        sev = "LOW"
+                else:  # delayMicroseconds
+                    sev = "INFO" if duration < 100 else "LOW"
+
                 findings.append(Finding(
                     finding_id=f"FIND-001-{line_num}",
                     rule_id=RULE_ARIS_001,
                     severity=sev,
-                    title="Blocking delay detected",
-                    description=f"Invocation of '{fn}({duration})' blocks CPU execution and stalls real-time loop scheduling.",
+                    title=f"Blocking {fn}({duration}) hardware stall",
+                    description=f"Invocation of '{fn}({duration})' stalls the MCU execution pipeline, preventing real-time task scheduling and starving I/O event loops.",
                     source_file=source_file,
                     source_line=line_num,
                     runtime_correlation="NONE",
                     confidence=0.95,
                     evidence={"call": match.group(0), "duration": duration, "unit": "ms" if fn == "delay" else "us"},
-                    recommended_action="Replace blocking delay with a non-blocking millis() timer state machine."
+                    recommended_action="Refactor to non-blocking millis() state machine architecture to recover loop execution bandwidth."
                 ))
         return findings
 
@@ -127,16 +138,18 @@ class RuleEvaluator:
 
     @staticmethod
     def check_aris_003_excessive_polling(code: str, source_file: str) -> List[Finding]:
-        """ARIS-003: Detects busy-wait polling loops (e.g. while(digitalRead(...)))."""
+        """ARIS-003: Detects busy-wait polling loops and blocking hardware peripheral waits."""
         findings = []
-        pattern = re.compile(r'\bwhile\s*\([^)]*(digitalRead|analogRead)[^)]*\)\s*;?')
+        poll_pattern = re.compile(r'\bwhile\s*\([^)]*(digitalRead|analogRead|Serial\.available)[^)]*\)\s*;?')
+        pulse_pattern = re.compile(r'\bpulseIn\s*\(\s*([a-zA-Z0-9_]+)\s*,\s*([a-zA-Z0-9_]+)\s*\)')
+
         for line_num, line in enumerate(code.splitlines(), 1):
-            if pattern.search(line):
+            if poll_pattern.search(line):
                 findings.append(Finding(
                     finding_id=f"FIND-003-{line_num}",
                     rule_id=RULE_ARIS_003,
                     severity="HIGH",
-                    title="Excessive polling / busy-waiting detected",
+                    title="Busy-wait hardware polling loop",
                     description="Tight while loop continuously polling pin states consumes 100% CPU time without yielding.",
                     source_file=source_file,
                     source_line=line_num,
@@ -144,6 +157,21 @@ class RuleEvaluator:
                     confidence=0.85,
                     evidence={"line": line.strip()},
                     recommended_action="Migrate pin monitoring to external pin-change interrupts (PCINT) or state change detection."
+                ))
+            m_pulse = pulse_pattern.search(line)
+            if m_pulse:
+                findings.append(Finding(
+                    finding_id=f"FIND-003-{line_num}",
+                    rule_id=RULE_ARIS_003,
+                    severity="HIGH",
+                    title="Blocking pulseIn() hardware bus stall",
+                    description="pulseIn() executes a blocking microsecond countdown loop that halts MCU instructions for up to 30,000µs.",
+                    source_file=source_file,
+                    source_line=line_num,
+                    runtime_correlation="NONE",
+                    confidence=0.92,
+                    evidence={"call": m_pulse.group(0), "pin": m_pulse.group(1)},
+                    recommended_action="Replace with Timer Input Capture Unit (ICP1) hardware interrupt to measure pulse widths in zero CPU cycles."
                 ))
         return findings
 
@@ -250,27 +278,30 @@ class RuleEvaluator:
 
     @staticmethod
     def check_aris_008_repeated_computation(code: str, source_file: str) -> List[Finding]:
-        """ARIS-008: Detects repeated complex floating point operations or trigonometry in loop."""
+        """ARIS-008: Detects repeated complex floating point operations or transcendental math in loop."""
         findings = []
-        pattern = re.compile(r'\b(sin|cos|tan|pow|sqrt)\s*\(')
+        pattern = re.compile(r'\b(sin|cos|tan|pow|sqrt|log|exp)\s*\(')
         in_loop = False
         for line_num, line in enumerate(code.splitlines(), 1):
             if "void loop" in line:
                 in_loop = True
-            if in_loop and pattern.search(line):
-                findings.append(Finding(
-                    finding_id=f"FIND-008-{line_num}",
-                    rule_id=RULE_ARIS_008,
-                    severity="MEDIUM",
-                    title="Repeated complex floating-point computation in loop",
-                    description="ATmega microcontrollers lack a hardware FPU. Software emulated math functions consume hundreds of clock cycles per loop iteration.",
-                    source_file=source_file,
-                    source_line=line_num,
-                    runtime_correlation="NONE",
-                    confidence=0.86,
-                    evidence={"line": line.strip()},
-                    recommended_action="Pre-compute values into a PROGMEM lookup table (LUT) or use fixed-point integer arithmetic."
-                ))
+            if in_loop:
+                m_math = pattern.search(line)
+                if m_math:
+                    fn_name = m_math.group(1)
+                    findings.append(Finding(
+                        finding_id=f"FIND-008-{line_num}",
+                        rule_id=RULE_ARIS_008,
+                        severity="HIGH" if fn_name in ("log", "pow", "exp") else "MEDIUM",
+                        title=f"Transcendental math '{fn_name}()' on FPU-less core",
+                        description=f"AVR8 microcontrollers lack hardware floating-point units. '{fn_name}()' invokes software emulation routines consuming 400-600 clock cycles per iteration.",
+                        source_file=source_file,
+                        source_line=line_num,
+                        runtime_correlation="NONE",
+                        confidence=0.91,
+                        evidence={"function": fn_name, "line": line.strip()},
+                        recommended_action="Replace with PROGMEM-resident integer lookup table (LUT) or Q15 fixed-point mathematical representation."
+                    ))
         return findings
 
     @staticmethod

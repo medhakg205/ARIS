@@ -101,6 +101,15 @@ class ExperimentEngine:
     ) -> ExperimentRecord:
         """Associates the executed candidate benchmark run with this experiment."""
         exp = self.get_experiment(experiment_id)
+        if exp.status in ("COMPLETED", "ROLLED_BACK"):
+            raise ArisException(
+                error_code="ARIS_VALIDATION_FAILED",
+                message=f"Cannot bind candidate run: experiment '{experiment_id}' is already {exp.status}.",
+                details={"experiment_id": experiment_id, "status": exp.status},
+                recoverable=False,
+                status_code=400
+            )
+
         cand_run = self.db.get_run(candidate_run_id)
         if not cand_run:
             raise ArisException(
@@ -125,6 +134,14 @@ class ExperimentEngine:
         - Updates Experiment record
         """
         exp = self.get_experiment(experiment_id)
+        if exp.status == "COMPLETED":
+            raise ArisException(
+                error_code="ARIS_VALIDATION_FAILED",
+                message=f"Experiment '{experiment_id}' has already completed validation.",
+                details={"experiment_id": experiment_id, "status": exp.status},
+                recoverable=False,
+                status_code=400
+            )
         if not exp.candidate_run_id:
             raise ArisException(
                 error_code="ARIS_VALIDATION_FAILED",
@@ -223,3 +240,129 @@ class ExperimentEngine:
     def list_experiments(self) -> List[ExperimentRecord]:
         """Lists all registered experiments."""
         return self.db.list_experiments()
+
+    def rollback_experiment(self, experiment_id: str) -> Dict[str, Any]:
+        """
+        Rolls back an optimization experiment:
+        1. Transitions experiment status to ROLLED_BACK.
+        2. Transitions candidate run status to ROLLED_BACK (if exists).
+        3. Transitions optimization candidate status to ROLLED_BACK.
+        Returns a rollback confirmation payload.
+        """
+        exp = self.get_experiment(experiment_id)
+        exp.status = "ROLLED_BACK"
+        self.db.save_experiment(exp)
+
+        cand_run = None
+        if exp.candidate_run_id:
+            cand_run = self.db.get_run(exp.candidate_run_id)
+            if cand_run:
+                cand_run.status = "ROLLED_BACK"
+                self.db.save_run(cand_run)
+
+        opt = self.db.get_optimization(exp.optimization_id)
+        if opt:
+            opt.status = "ROLLED_BACK"
+            self.db.save_optimization(opt)
+
+        return {
+            "status": "ROLLED_BACK",
+            "experiment_id": experiment_id,
+            "candidate_run_id": exp.candidate_run_id,
+            "optimization_id": exp.optimization_id,
+            "message": f"Successfully rolled back experiment '{experiment_id}' and restored baseline configuration."
+        }
+
+    def create_experiment_manifest(
+        self,
+        experiment_id: str,
+        firmware_hash: str,
+        candidate_hash: str,
+        compiler_toolchain: str,
+        selected_measurements: Optional[List[str]] = None,
+        experiment_conditions: Optional[Dict[str, Any]] = None,
+        prediction: Optional[Dict[str, Any]] = None,
+        duration_seconds: float = 10.0,
+        sample_count: int = 50,
+        instrumentation_mode: str = "BALANCED"
+    ):
+        """
+        Generates and persists an ExperimentManifest capturing exact board identity,
+        code hashes, toolchain, conditions, and outcomes for reproducible validation.
+        """
+        from backend.experiments.manifest_models import ExperimentManifest
+        from backend.firmware.board_profiles import get_board_profile
+        exp = self.get_experiment(experiment_id)
+
+        mcu = None
+        arch = None
+        fqbn = None
+        try:
+            profile = get_board_profile(exp.board_id)
+            mcu = profile.mcu
+            arch = profile.architecture
+            fqbn = profile.fqbn
+        except Exception:
+            pass
+
+        manifest_id = f"MAN-{uuid.uuid4().hex[:8].upper()}"
+        manifest = ExperimentManifest(
+            manifest_id=manifest_id,
+            experiment_id=experiment_id,
+            board_id=exp.board_id,
+            mcu=mcu,
+            architecture=arch,
+            fqbn=fqbn,
+            firmware_hash=firmware_hash,
+            candidate_hash=candidate_hash,
+            compiler_toolchain=compiler_toolchain,
+            instrumentation_mode=instrumentation_mode,
+            selected_measurements=selected_measurements or ["loop_time", "sram_used"],
+            duration_seconds=duration_seconds,
+            sample_count=sample_count,
+            experiment_conditions=experiment_conditions or {},
+            prediction=prediction or {},
+            actual_result={},
+            validation_result=None,
+            created_at=datetime.now(timezone.utc).isoformat()
+        )
+        self.db.save_manifest(manifest)
+        return manifest
+
+    def create_provenance_lineage(
+        self,
+        firmware_id: str,
+        analysis_run_id: Optional[str] = None,
+        baseline_run_id: Optional[str] = None,
+        finding_ids: Optional[List[str]] = None,
+        hypothesis_id: Optional[str] = None,
+        candidate_id: Optional[str] = None,
+        experiment_id: Optional[str] = None,
+        manifest_id: Optional[str] = None,
+        candidate_run_id: Optional[str] = None,
+        validation_id: Optional[str] = None
+    ):
+        """
+        Creates and persists a full audit lineage connecting:
+        Firmware -> Static Analysis -> Runtime Run -> Finding -> Hypothesis -> Candidate -> Experiment -> Validation.
+        """
+        from backend.experiments.manifest_models import ProvenanceLineage
+        lineage_id = f"LIN-{uuid.uuid4().hex[:8].upper()}"
+        lineage = ProvenanceLineage(
+            lineage_id=lineage_id,
+            firmware_id=firmware_id,
+            analysis_run_id=analysis_run_id,
+            baseline_run_id=baseline_run_id,
+            finding_ids=finding_ids or [],
+            hypothesis_id=hypothesis_id,
+            candidate_id=candidate_id,
+            experiment_id=experiment_id,
+            manifest_id=manifest_id,
+            candidate_run_id=candidate_run_id,
+            validation_id=validation_id,
+            created_at=datetime.now(timezone.utc).isoformat()
+        )
+        self.db.save_lineage(lineage)
+        return lineage
+
+

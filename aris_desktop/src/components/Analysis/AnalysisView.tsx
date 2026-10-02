@@ -65,38 +65,40 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Severity summary bar */}
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-800 shrink-0">
-        {Object.entries(severityCounts).map(([sev, cnt]) => (
-          <button
-            key={sev}
-            onClick={() => setSeverityFilter(sev === severityFilter ? 'ALL' : sev)}
-            className={`flex items-center gap-1.5 px-2 py-1 rounded border text-[10px] font-mono transition-all ${
-              SEVERITY_STYLES[sev as FindingSeverity]
-            } ${severityFilter === sev ? 'ring-1 ring-current' : 'opacity-70 hover:opacity-100'}`}
-          >
-            <span className="font-bold">{cnt}</span>
-            <span>{sev}</span>
-          </button>
-        ))}
-        <div className="w-px h-4 bg-slate-800" />
-        <span className="text-[10px] font-mono text-slate-500">
-          Correlation:
-        </span>
-        {['ALL', 'HIGH', 'MEDIUM', 'LOW', 'NONE'].map((c) => (
-          <button
-            key={c}
-            onClick={() => setCorrelationFilter(c)}
-            className={`text-[10px] font-mono px-2 py-0.5 rounded border transition-colors ${
-              correlationFilter === c
-                ? 'border-slate-500 text-slate-200 bg-slate-800'
-                : 'border-slate-800 text-slate-500 hover:text-slate-300'
-            }`}
-          >
-            {c}
-          </button>
-        ))}
-        <div className="flex-1" />
-        <span className="text-[10px] font-mono text-slate-500">
+      <div className="flex items-center flex-wrap sm:flex-nowrap gap-2 px-3 py-2 border-b border-slate-800/80 bg-[#161920]/60 shrink-0 overflow-x-auto text-[10px] font-mono">
+        <div className="flex items-center gap-1.5 shrink-0">
+          {Object.entries(severityCounts).map(([sev, cnt]) => (
+            <button
+              key={sev}
+              onClick={() => setSeverityFilter(sev === severityFilter ? 'ALL' : sev)}
+              className={`flex items-center gap-1 px-1.5 py-0.5 rounded border transition-all ${
+                SEVERITY_STYLES[sev as FindingSeverity]
+              } ${severityFilter === sev ? 'ring-1 ring-current font-bold' : 'opacity-70 hover:opacity-100'}`}
+            >
+              <span className="font-bold">{cnt}</span>
+              <span>{sev}</span>
+            </button>
+          ))}
+        </div>
+        <div className="w-px h-3.5 bg-slate-800 shrink-0 hidden sm:block" />
+        <div className="flex items-center gap-1 shrink-0">
+          <span className="text-slate-500 mr-0.5">Correlation:</span>
+          {['ALL', 'HIGH', 'MEDIUM', 'LOW', 'NONE'].map((c) => (
+            <button
+              key={c}
+              onClick={() => setCorrelationFilter(c)}
+              className={`px-1.5 py-0.5 rounded border transition-colors ${
+                correlationFilter === c
+                  ? 'border-slate-500 text-slate-200 bg-slate-800'
+                  : 'border-slate-800 text-slate-500 hover:text-slate-300'
+              }`}
+            >
+              {c}
+            </button>
+          ))}
+        </div>
+        <div className="flex-1 min-w-[8px]" />
+        <span className="text-slate-400 shrink-0">
           {filtered.length} / {findings.length} findings
         </span>
       </div>

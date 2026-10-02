@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "test": "vitest run",
     "preview": "vite preview",
     "electron": "electron .",
     "start": "concurrently \"vite\" \"electron .\""

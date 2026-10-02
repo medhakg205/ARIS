@@ -10,7 +10,7 @@ from typing import List, Dict, Any, Optional
 from pydantic import BaseModel, Field
 from fastapi import APIRouter
 
-from backend.api.dependencies import get_firmware_mgr
+from backend.api.dependencies import get_firmware_mgr, get_build_flasher
 from backend.database.models import FirmwareRecord
 
 import os
@@ -73,13 +73,17 @@ def _discover_arduino_ide_sketches() -> List[Dict[str, Any]]:
 
     # 2. Check standard Arduino sketchbook folders
     sketchbook_dirs = [
+        os.environ.get('ARDUINO_SKETCHBOOK_DIR', ''),
         os.path.expanduser('~/OneDrive/Documents/Arduino'),
         os.path.expanduser('~/Documents/Arduino'),
     ]
     for sb in sketchbook_dirs:
-        if os.path.exists(sb):
+        if sb and os.path.exists(sb):
             for ino in glob.glob(os.path.join(sb, '**', '*.ino'), recursive=True):
                 ino_norm = os.path.normpath(ino)
+                # Ignore third-party library examples in libraries/
+                if os.sep + "libraries" + os.sep in ino_norm or "/libraries/" in ino_norm.replace("\\", "/"):
+                    continue
                 if ino_norm not in seen_paths:
                     seen_paths.add(ino_norm)
                     results.append({
@@ -182,6 +186,10 @@ def save_ide_sketch(req: SaveIDESketchRequest) -> Dict[str, Any]:
     Allows user to immediately re-flash in Arduino IDE with zero copy-pasting.
     """
     import os
+    allowed_exts = (".ino", ".cpp", ".c", ".h")
+    if not req.path.lower().endswith(allowed_exts):
+        return {"success": False, "error": f"Invalid sketch file extension. Must be one of {allowed_exts}"}
+
     if not os.path.exists(req.path):
         return {"success": False, "error": f"File does not exist: {req.path}"}
 
@@ -208,4 +216,41 @@ def get_firmware_detail(firmware_id: str) -> Dict[str, Any]:
     mgr = get_firmware_mgr()
     fw = mgr.get_firmware(firmware_id)
     return fw.model_dump()
+
+
+class CompileFirmwareRequest(BaseModel):
+    source_code: str
+    board_id: str = "arduino_uno"
+    is_simulation: bool = False
+
+
+class FlashFirmwareRequest(BaseModel):
+    board_id: str = "arduino_uno"
+    port: str
+    source_code: Optional[str] = None
+    binary_path: Optional[str] = None
+
+
+@router.post("/api/firmware/compile")
+def compile_firmware_endpoint(req: CompileFirmwareRequest) -> Dict[str, Any]:
+    """Compiles source code for target board using arduino-cli or fallback."""
+    flasher = get_build_flasher()
+    return flasher.compile_firmware(
+        source_code=req.source_code,
+        board_id=req.board_id,
+        is_simulation=req.is_simulation
+    )
+
+
+@router.post("/api/firmware/flash")
+def flash_firmware_endpoint(req: FlashFirmwareRequest) -> Dict[str, Any]:
+    """Flashes compiled binary or sketch onto target microcontroller."""
+    flasher = get_build_flasher()
+    return flasher.flash_board(
+        board_id=req.board_id,
+        port=req.port,
+        source_code=req.source_code,
+        binary_path=req.binary_path
+    )
+
 

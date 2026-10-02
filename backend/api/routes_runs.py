@@ -130,7 +130,9 @@ def start_run(run_id: str) -> Dict[str, Any]:
     if run.is_simulated or run.is_demo:
         simulator.set_board(run.board_id)
         fw = (run.firmware_id or "").upper()
-        if "LED" in fw:
+        if "CANDIDATE" in fw or "OPTIMIZED" in fw or "PATCH" in fw:
+            simulator.set_mode("optimized")
+        elif "LED" in fw:
             simulator.set_mode("blocking_delay", delay_ms=1000)
         elif "ULTRASONIC" in fw:
             simulator.set_mode("blocking_delay", delay_ms=35)

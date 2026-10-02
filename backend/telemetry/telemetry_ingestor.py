@@ -14,7 +14,6 @@ Handles:
 import json
 import logging
 from typing import List, Dict, Any, Callable, Optional
-from datetime import datetime, timezone
 
 from .telemetry_schema import (
     TelemetrySample,
@@ -24,7 +23,7 @@ from .telemetry_schema import (
     ArisException
 )
 from backend.database.db_engine import DatabaseEngine
-from backend.database.models import TelemetryRecord, RunRecord
+from backend.database.models import TelemetryRecord
 
 logger = logging.getLogger("aris.telemetry.ingestor")
 
@@ -182,7 +181,17 @@ class TelemetryIngestor:
         Performs sequence monotonicity checks, run association, database persistence,
         and subscriber dispatching.
         """
-        # 1. Sequence validation (warn on sequence reversals, but do not drop to preserve data)
+        # 1. Run metadata is the authoritative provenance source. Reject samples
+        # without a registered run rather than silently treating them as physical.
+        run = self.db.get_run(sample.run_id)
+        if not run:
+            self._handle_rejection(
+                "ARIS_TELEMETRY_INVALID: "
+                f"Telemetry sample references unknown run '{sample.run_id}'."
+            )
+            return False
+
+        # 2. Sequence validation (warn on sequence reversals, but do not drop to preserve data)
         seq_key = f"{sample.run_id}:{sample.metric}"
         last_seq = self._last_sequence.get(seq_key)
         if last_seq is not None and sample.sequence <= last_seq:
@@ -191,18 +200,12 @@ class TelemetryIngestor:
             )
         self._last_sequence[seq_key] = sample.sequence
 
-        # 2. Timestamp tracking
+        # 3. Timestamp tracking
         self._last_timestamp[sample.run_id] = sample.timestamp_ms
 
-        # 3. Ensure Run exists in DB or create implicit run if needed
-        run = self.db.get_run(sample.run_id)
-        if not run:
-            self.db.save_run(RunRecord(
-                run_id=sample.run_id,
-                board_id=sample.board_id,
-                status="RUNNING",
-                start_time=datetime.now(timezone.utc).isoformat()
-            ))
+        # Simulator/demo runs must remain distinguishable after passing through
+        # the shared ingestion and persistence pipeline.
+        is_demo = run.is_demo or run.is_simulated
 
         # 4. Save to database
         record = TelemetryRecord(
@@ -217,7 +220,7 @@ class TelemetryIngestor:
             unit=sample.unit,
             classification=sample.classification,
             confidence=sample.confidence,
-            is_demo=False
+            is_demo=is_demo
         )
         self.db.save_telemetry_sample(record)
 

@@ -19,6 +19,7 @@ interface OptimizationViewProps {
   onApprove: (id: string) => Promise<OptimizationCandidate | null>;
   onReject: (id: string) => Promise<OptimizationCandidate | null>;
   onCreateExperiment: (title: string, optId: string) => Promise<unknown>;
+  onNavigate?: (tab: string) => void;
 }
 
 const RISK_STYLES = {
@@ -46,6 +47,7 @@ export const OptimizationView: React.FC<OptimizationViewProps> = ({
   onApprove,
   onReject,
   onCreateExperiment,
+  onNavigate,
 }) => {
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [confirmAction, setConfirmAction] = useState<'approve' | 'reject' | null>(null);
@@ -312,12 +314,30 @@ export const OptimizationView: React.FC<OptimizationViewProps> = ({
         )}
 
         {candidate.status !== 'PROPOSED' && (
-          <div className="bg-slate-900/40 border border-slate-800/50 rounded p-3">
-            <p className="text-xs font-mono text-slate-400">
-              This candidate is in status <span className="font-semibold text-slate-200">{candidate.status}</span>.
-              {candidate.status === 'APPROVED' && ' An experiment has been created. View progress in Experiments tab.'}
-              {candidate.status === 'VALIDATED' && ' Closed-loop validation completed. View results in Validation tab.'}
-            </p>
+          <div className="bg-slate-900/40 border border-slate-800/50 rounded-lg p-3.5 space-y-2">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-mono text-slate-300">
+                Candidate status: <span className="font-semibold text-slate-100">{candidate.status}</span>.
+                {candidate.status === 'APPROVED' && ' Closed-loop experiment is ready to test & benchmark.'}
+                {candidate.status === 'VALIDATED' && ' Closed-loop validation completed with empirical confirmation.'}
+              </p>
+              {candidate.status === 'APPROVED' && onNavigate && (
+                <button
+                  onClick={() => onNavigate('experiments')}
+                  className="px-3 py-1.5 bg-[#00878a] hover:bg-[#009da0] text-white text-xs font-mono font-semibold rounded-md flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  Go to Experiments &amp; Test →
+                </button>
+              )}
+              {candidate.status === 'VALIDATED' && onNavigate && (
+                <button
+                  onClick={() => onNavigate('experiments')}
+                  className="px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-300 text-xs font-mono font-semibold rounded-md flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  View Validation Report →
+                </button>
+              )}
+            </div>
           </div>
         )}
       </div>

@@ -11,4 +11,6 @@ __pycache__/
 .vscode/
 .idea/
 *.db
-
+build_artifacts/
+dist/
+aris_desktop/dist/

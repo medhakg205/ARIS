@@ -58,6 +58,7 @@ class ValidationReport(BaseModel):
     percentage_change: Dict[str, float]
     validation_status: str
     reason: str
+    normalized_outcome: str = "INCONCLUSIVE"
 
 
 class ValidationEngine:
@@ -148,7 +149,7 @@ class ValidationEngine:
         if has_new_runtime_fault:
             status = "REGRESSION"
             reason = "Runtime faults detected in optimization candidate execution."
-        elif regressions_count >= 2:
+        elif regressions_count >= 1:
             status = "REGRESSION"
             reason = f"Performance regressed across {regressions_count} canonical metrics."
         elif improvements_count >= 2 and regressions_count == 0:
@@ -164,6 +165,17 @@ class ValidationEngine:
             status = "INCONCLUSIVE"
             reason = "Metric variances do not allow a conclusive validation decision."
 
+        # Map to 4 fundamental experiment outcome categories
+        # (IMPROVEMENT, REGRESSION, INCONCLUSIVE, NO_SIGNIFICANT_CHANGE)
+        if status in ("VALIDATED", "PARTIALLY_VALIDATED"):
+            normalized_outcome = "IMPROVEMENT"
+        elif status == "REGRESSION":
+            normalized_outcome = "REGRESSION"
+        elif status == "NO_SIGNIFICANT_CHANGE":
+            normalized_outcome = "NO_SIGNIFICANT_CHANGE"
+        else:
+            normalized_outcome = "INCONCLUSIVE"
+
         return ValidationReport(
             validation_id=validation_id,
             experiment_id=experiment_id,
@@ -172,5 +184,6 @@ class ValidationEngine:
             difference=diffs,
             percentage_change=pct_changes,
             validation_status=status,
-            reason=reason
+            reason=reason,
+            normalized_outcome=normalized_outcome
         )

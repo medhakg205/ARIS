@@ -85,7 +85,7 @@ export const MemoryVisualizer: React.FC<MemoryVisualizerProps> = ({
           </div>
 
           <div className="space-y-2 pt-2">
-            {memoryMap.sections.filter(s => s.target_memory.includes('Flash')).map((sec, idx) => (
+            {(memoryMap.sections || []).filter((s: any) => s.target_memory.includes('Flash')).map((sec: any, idx: number) => (
               <div key={idx} className="p-2.5 rounded-lg bg-[#0a0d14] border border-slate-800 flex items-center justify-between text-xs font-mono">
                 <div>
                   <span className="font-bold text-cyan-300">{sec.name}</span>
@@ -137,7 +137,7 @@ export const MemoryVisualizer: React.FC<MemoryVisualizerProps> = ({
           </div>
 
           <div className="space-y-2 pt-2">
-            {memoryMap.sections.filter(s => s.target_memory.includes('SRAM')).map((sec, idx) => (
+            {(memoryMap.sections || []).filter((s: any) => s.target_memory.includes('SRAM')).map((sec: any, idx: number) => (
               <div key={idx} className="p-2.5 rounded-lg bg-[#0a0d14] border border-slate-800 flex items-center justify-between text-xs font-mono">
                 <div>
                   <span className="font-bold text-blue-300">{sec.name}</span>
@@ -160,7 +160,7 @@ export const MemoryVisualizer: React.FC<MemoryVisualizerProps> = ({
         </div>
 
         <div className="space-y-1.5 font-mono text-xs max-h-48 overflow-y-auto">
-          {memoryMap.disassembly_preview.map((d, i) => (
+          {memoryMap.disassembly_preview.map((d: any, i: number) => (
             <div key={i} className="p-2 rounded bg-[#0a0d14] border border-slate-800/80 flex items-center justify-between text-slate-300">
               <div className="flex items-center gap-4">
                 <span className="text-cyan-400">{d.addr}</span>

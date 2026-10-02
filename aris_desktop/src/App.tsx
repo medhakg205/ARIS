@@ -1,49 +1,124 @@
 // ============================================================
-// ARIS — Application Root
+// ARIS Studio — Application Root (v3.0.0-PROFESSIONAL)
 // Adaptive Runtime Intelligence System for Embedded Devices
-// Engineer 3: AI + Frontend
 // ============================================================
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useARIS } from './hooks/useAris';
-import { Navbar, type NavTab } from './components/Navbar';
-import { DashboardView } from './components/Dashboard/DashboardView';
-import { LiveMonitorView } from './components/LiveMonitor/LiveMonitorView';
-import { FirmwareView } from './components/Firmware/FirmwareView';
-import { AnalysisView } from './components/Analysis/AnalysisView';
-import { OptimizationView } from './components/Optimization/OptimizationView';
-import { ExperimentsView } from './components/Experiments/ExperimentsView';
-import { ValidationView } from './components/Validation/ValidationView';
-import { HistoryView } from './components/History/HistoryView';
+import { useTheme } from './hooks/useTheme';
+import { NavTab } from './types/navigation';
+import { Sidebar } from './components/Sidebar';
+import { TopBar } from './components/TopBar';
+import { CommandPalette } from './components/CommandPalette/CommandPalette';
+import { GlobalSearchModal } from './components/Search/GlobalSearchModal';
+import { NotificationDrawer, type NotificationItem } from './components/Notifications/NotificationDrawer';
+import { AboutModal } from './components/About/AboutModal';
+
+// Views
+import { OverviewDashboard } from './components/Dashboard/OverviewDashboard';
+import { DevicesView } from './components/Devices/DevicesView';
+import { FirmwareWorkspace } from './components/Firmware/FirmwareWorkspace';
+import { TelemetryLab } from './components/LiveMonitor/TelemetryLab';
+import { BaselineCenter } from './components/Baselines/BaselineCenter';
+import { OptimizationCenter } from './components/Optimization/OptimizationCenter';
+import { ExperimentCenter } from './components/Experiments/ExperimentCenter';
+import { AnalysisCenter } from './components/Analysis/AnalysisCenter';
+import { ReportCenter } from './components/Reports/ReportCenter';
+import { SettingsCenter } from './components/Settings/SettingsCenter';
+import { DiagnosticsView } from './components/Diagnostics/DiagnosticsView';
+import { LogViewer } from './components/Logs/LogViewer';
+
+// Common
 import { ErrorBanner } from './components/common/ErrorBanner';
 import { SystemInfoModal } from './components/common/SystemInfoModal';
-import { SplashScreen } from './components/common/SplashScreen';
-import type { FindingRecord } from './types';
+import { StartupSplash } from './components/Splash/StartupSplash';
+import type { FindingRecord, BoardProfile } from './types';
+
+const INITIAL_NOTIFICATIONS: NotificationItem[] = [
+  {
+    id: 'n-1',
+    timestamp: 'Just now',
+    type: 'success',
+    title: 'ARIS v3.0.0-PROFESSIONAL Ready',
+    message: 'Embedded intelligence runtime engine initialized in deterministic mode.',
+    read: false,
+  },
+  {
+    id: 'n-2',
+    timestamp: '2m ago',
+    type: 'info',
+    title: 'Hardware Link Standby',
+    message: 'pySerial scanner online. 0 physical devices detected. Simulation mode available.',
+    read: false,
+  },
+];
 
 export const App: React.FC = () => {
-  const [showSplash, setShowSplash] = useState(true);
+  const [showSplash, setShowSplash] = useState(() => {
+    try {
+      return sessionStorage.getItem('aris_splash_shown') !== 'true';
+    } catch {
+      return true;
+    }
+  });
   const [activeTab, setActiveTab] = useState<NavTab>('dashboard');
-  const [selectedExperimentId, setSelectedExperimentId] = useState<string | null>(null);
   const [showInfoModal, setShowInfoModal] = useState(false);
+  const [showAboutModal, setShowAboutModal] = useState(false);
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [searchModalOpen, setSearchModalOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notifications, setNotifications] = useState<NotificationItem[]>(INITIAL_NOTIFICATIONS);
 
-  const handleSplashFinish = useCallback(() => {
+  const aris = useARIS();
+  const { themeMode, setThemeMode, toggleTheme } = useTheme();
+
+  const handleSplashComplete = useCallback(() => {
+    try {
+      sessionStorage.setItem('aris_splash_shown', 'true');
+    } catch {}
     setShowSplash(false);
   }, []);
 
-  const aris = useARIS();
+  // Global Keyboard Shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl+K or Cmd+K -> Command Palette
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        setCommandPaletteOpen((prev) => !prev);
+      }
+      // Ctrl+Shift+F -> Global Search
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'F') {
+        e.preventDefault();
+        setSearchModalOpen((prev) => !prev);
+      }
+      // Ctrl+Shift+P -> Command Palette
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'P') {
+        e.preventDefault();
+        setCommandPaletteOpen((prev) => !prev);
+      }
+    };
 
-  const handleNavigate = useCallback((tab: string) => {
-    setActiveTab(tab as NavTab);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  const handleNavigate = useCallback((tab: NavTab) => {
+    if (tab === 'about') {
+      setShowAboutModal(true);
+    } else {
+      setActiveTab(tab);
+    }
   }, []);
 
   const handleStartDemo = useCallback(async (boardId: string = 'arduino_uno', projectId: string = 'led_blink') => {
     await aris.startDemo(boardId, projectId);
-    setActiveTab('monitor');
+    setActiveTab('telemetry');
   }, [aris]);
 
   const handleStartHardwareRun = useCallback(async () => {
     await aris.startRun(false);
-    setActiveTab('monitor');
+    setActiveTab('telemetry');
   }, [aris]);
 
   const handleStopRun = useCallback(async () => {
@@ -60,198 +135,340 @@ export const App: React.FC = () => {
       source = 'void setup() {}\nvoid loop() {}';
     }
     await aris.generateCandidate(finding, source);
-    setActiveTab('optimization');
+    setActiveTab('optimize');
   }, [aris]);
 
-  const handleNavigateValidation = useCallback((experimentId: string) => {
-    setSelectedExperimentId(experimentId);
-    setActiveTab('experiments'); // We show validation inline
-  }, []);
+  const unreadCount = notifications.filter((n) => !n.read).length;
 
   return (
-    <div className="flex flex-col h-screen w-screen bg-[#12151a] text-slate-200 overflow-hidden select-none relative">
-      {/* Animated Startup Splash Screen */}
+    <div className="flex h-screen w-screen overflow-hidden bg-app text-fg select-none relative font-sans">
+      {/* Startup Splash Screen */}
       {showSplash && (
-        <SplashScreen onFinish={handleSplashFinish} />
+        <StartupSplash
+          backendOnline={aris.backendOnline}
+          hardwareConnected={aris.hardwareConnected}
+          selectedBoard={aris.selectedBoard}
+          onComplete={handleSplashComplete}
+        />
       )}
 
-      {/* Navigation Header */}
-      <Navbar
+      {/* Professional Collapsible Sidebar */}
+      <Sidebar
         activeTab={activeTab}
-        onTabChange={setActiveTab}
+        onTabChange={handleNavigate}
+        issuesCount={aris.findings.length}
+        experimentsCount={aris.experiments.length}
+        candidatesCount={aris.optimizations.length}
         hardwareConnected={aris.hardwareConnected}
-        wsConnected={aris.wsConnected}
-        backendOnline={aris.backendOnline}
-        isDemo={aris.isDemo}
-        boardName={aris.selectedBoard?.display_name}
-        onOpenInfo={() => setShowInfoModal(true)}
       />
 
-      {/* Global Error Banner */}
-      {aris.lastError && (
-        <div className="px-4 pt-2 shrink-0">
-          <ErrorBanner error={aris.lastError} onDismiss={aris.clearError} />
-        </div>
-      )}
+      {/* Main Workspace Layout */}
+      <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+        {/* Top Navigation & Status Bar */}
+        <TopBar
+          activeTab={activeTab}
+          projectName={aris.activeIDESketch?.name || aris.activeFirmware?.name}
+          hardwareConnected={aris.hardwareConnected}
+          isDemo={aris.isDemo}
+          selectedBoard={aris.selectedBoard}
+          confidence={aris.isDemo ? 'SIMULATED' : 'PHYSICAL'}
+          connectedPort={aris.connectionStatus?.port}
+          deviceState={aris.deviceState}
+          themeMode={themeMode}
+          onThemeChange={setThemeMode}
+          onOpenCommandPalette={() => setCommandPaletteOpen(true)}
+          onOpenSearch={() => setSearchModalOpen(true)}
+          onOpenNotifications={() => setNotificationsOpen(true)}
+          onOpenInfo={() => setShowAboutModal(true)}
+          onNavigate={handleNavigate}
+          unreadNotificationsCount={unreadCount}
+          telemetryActive={Boolean(aris.activeRun)}
+        />
 
-      {/* Main Content */}
-      <main className="flex-1 overflow-hidden bg-[#12151a]">
-        {activeTab === 'dashboard' && (
-          <DashboardView
-            health={aris.health}
-            selectedBoard={aris.selectedBoard}
-            activeRun={aris.activeRun}
-            hardwareConnected={aris.hardwareConnected}
-            isDemo={aris.isDemo}
-            latestSamples={aris.latestSamples}
-            backendOnline={aris.backendOnline}
-            onStartDemo={handleStartDemo}
-            onStartHardwareRun={handleStartHardwareRun}
-            onStopRun={handleStopRun}
-            onNavigate={handleNavigate}
-            onOpenInfo={() => setShowInfoModal(true)}
-          />
+        {/* Global Error Banner */}
+        {aris.lastError && (
+          <div className="px-4 pt-2 shrink-0">
+            <ErrorBanner error={aris.lastError} onDismiss={aris.clearError} />
+          </div>
         )}
 
-        {activeTab === 'monitor' && (
-          <LiveMonitorView
-            activeRun={aris.activeRun}
-            wsConnected={aris.wsConnected}
-            isDemo={aris.isDemo}
-            latestSamples={aris.latestSamples}
-            telemetryHistory={aris.telemetryHistory}
-            hardwareConnected={aris.hardwareConnected}
-            onStartRun={handleStartHardwareRun}
-            onStartDemo={handleStartDemo}
-            onStopRun={handleStopRun}
-            onNavigate={handleNavigate}
-          />
-        )}
+        {/* Viewport Center */}
+        <main className="flex-1 overflow-hidden relative bg-app">
+          {activeTab === 'dashboard' && (
+            <OverviewDashboard
+              health={aris.health}
+              selectedBoard={aris.selectedBoard}
+              activeRun={aris.activeRun}
+              activeFirmware={aris.activeFirmware}
+              activeIDESketch={aris.activeIDESketch}
+              hardwareConnected={aris.hardwareConnected}
+              isDemo={aris.isDemo}
+              latestSamples={aris.latestSamples}
+              backendOnline={aris.backendOnline}
+              findings={aris.findings}
+              optimizations={aris.optimizations}
+              onStartDemo={handleStartDemo}
+              onStartHardwareRun={handleStartHardwareRun}
+              onStopRun={handleStopRun}
+              onNavigate={(t: string) => handleNavigate(t as NavTab)}
+              onOpenInfo={() => setShowAboutModal(true)}
+              connectedPort={aris.connectionStatus?.port}
+            />
+          )}
 
-        {activeTab === 'firmware' && (
-          <FirmwareView
-            firmwareList={aris.firmwareList}
-            activeFirmware={aris.activeFirmware}
-            selectedBoard={aris.selectedBoard}
-            loading={aris.loading}
-            lastError={aris.lastError}
-            ideSketches={aris.ideSketches}
-            activeIDESketch={aris.activeIDESketch}
-            onSyncIDESketch={aris.syncIDESketch}
-            onRefreshIDESketches={aris.refreshIDESketches}
-            onUpload={aris.uploadFirmware}
-            onSelectFirmware={aris.setActiveFirmware}
-            onClearError={aris.clearError}
-          />
-        )}
+          {activeTab === 'devices' && (
+            <DevicesView
+              boards={aris.boards}
+              selectedBoard={aris.selectedBoard}
+              onSelectBoard={(b: BoardProfile) => aris.setSelectedBoard(b)}
+              connectionStatus={aris.connectionStatus || { connected: false, available_ports: [] }}
+              hardwareConnected={aris.hardwareConnected}
+              onConnect={async (port: string, baudRate?: number) => {
+                try {
+                  await aris.connectHardware(port, baudRate);
+                  return true;
+                } catch {
+                  return false;
+                }
+              }}
+              onDisconnect={async () => {
+                try {
+                  await aris.disconnectHardware();
+                  return true;
+                } catch {
+                  return false;
+                }
+              }}
+              onAutoDetect={async () => {
+                try {
+                  await aris.autoDetectHardware();
+                  return true;
+                } catch {
+                  return false;
+                }
+              }}
+              isDemo={aris.isDemo}
+              onNavigate={(t: string) => handleNavigate(t as NavTab)}
+              loading={Boolean(Object.values(aris.loading).some(Boolean))}
+            />
+          )}
 
-        {activeTab === 'analysis' && (
-          <AnalysisView
-            findings={aris.findings}
-            activeRun={aris.activeRun}
-            loading={aris.loading}
-            onGenerateCandidate={handleGenerateCandidate}
-          />
-        )}
+          {activeTab === 'firmware' && (
+            <FirmwareWorkspace
+              firmwareList={aris.firmwareList}
+              activeFirmware={aris.activeFirmware}
+              selectedBoard={aris.selectedBoard}
+              ideSketches={aris.ideSketches}
+              activeIDESketch={aris.activeIDESketch}
+              onSyncIDESketch={async (path?: string) => {
+                const r = await aris.syncIDESketch(path);
+                return Boolean(r);
+              }}
+              onRefreshIDESketches={aris.refreshIDESketches}
+              onSaveIDESketch={aris.saveIDESketch}
+              onSelectFirmware={aris.setActiveFirmware}
+              onNavigate={(t: string) => handleNavigate(t as NavTab)}
+              connectedPort={aris.connectionStatus?.port}
+              hardwareConnected={aris.hardwareConnected}
+            />
+          )}
 
-        {activeTab === 'optimization' && (
-          <OptimizationView
-            optimizations={aris.optimizations}
-            loading={aris.loading}
-            activeIDESketch={aris.activeIDESketch}
-            onSaveIDESketch={aris.saveIDESketch}
-            onApprove={aris.approveOptimization}
-            onReject={aris.rejectOptimization}
-            onCreateExperiment={aris.createExperiment}
-          />
-        )}
+          {activeTab === 'telemetry' && (
+            <TelemetryLab
+              activeRun={aris.activeRun}
+              wsConnected={aris.wsConnected}
+              isDemo={aris.isDemo}
+              latestSamples={aris.latestSamples}
+              telemetryHistory={Object.values(aris.telemetryHistory).flat()}
+              hardwareConnected={aris.hardwareConnected}
+              onStartRun={handleStartHardwareRun}
+              onStartDemo={handleStartDemo}
+              onStopRun={handleStopRun}
+              onNavigate={(t: string) => handleNavigate(t as NavTab)}
+            />
+          )}
 
-        {activeTab === 'experiments' && (
-          selectedExperimentId ? (
-            <div className="flex flex-col h-full">
-              <div className="flex items-center gap-3 px-4 py-2 border-b border-slate-800 shrink-0">
-                <button
-                  onClick={() => setSelectedExperimentId(null)}
-                  className="text-xs font-mono text-slate-400 hover:text-slate-200 transition-colors"
-                >
-                  ← Back to Experiments
-                </button>
-              </div>
-              <div className="flex-1 overflow-hidden">
-                <ValidationView
-                  experiments={aris.experiments}
-                  validations={aris.validations}
-                  selectedExperimentId={selectedExperimentId}
-                  onLoadValidation={aris.loadValidation}
-                />
-              </div>
-            </div>
-          ) : (
-            <ExperimentsView
+          {activeTab === 'baselines' && (
+            <BaselineCenter
+              selectedBoard={aris.selectedBoard}
+              activeRun={aris.activeRun}
+              latestSamples={aris.latestSamples}
+              onStartBaseline={handleStartHardwareRun}
+              onStopBaseline={handleStopRun}
+              isDemo={aris.isDemo}
+              hardwareConnected={aris.hardwareConnected}
+            />
+          )}
+
+          {(activeTab === 'optimize' || activeTab === 'optimization') && (
+            <OptimizationCenter
+              optimizations={aris.optimizations}
+              loading={Boolean(Object.values(aris.loading).some(Boolean))}
+              activeIDESketch={aris.activeIDESketch}
+              onSaveIDESketch={aris.saveIDESketch}
+              onApprove={async (id: string) => {
+                const r = await aris.approveOptimization(id);
+                return Boolean(r);
+              }}
+              onReject={async (id: string) => {
+                const r = await aris.rejectOptimization(id);
+                return Boolean(r);
+              }}
+              onCreateExperiment={async (optId: string) => {
+                const exp = await aris.createExperiment(`EXP-${optId.substring(0, 6)}`, optId);
+                return exp ? (exp.experiment_id || exp.id || null) : null;
+              }}
+              onNavigate={(t: string) => handleNavigate(t as NavTab)}
+              selectedBoard={aris.selectedBoard}
+              activeRun={aris.activeRun}
+              activeFirmware={aris.activeFirmware}
+              latestSamples={aris.latestSamples}
+              telemetryHistory={Object.values(aris.telemetryHistory).flat()}
+              experiments={aris.experiments}
+              validations={aris.validations}
+              isDemo={aris.isDemo}
+              hardwareConnected={aris.hardwareConnected}
+              onAutoDetectHardware={aris.autoDetectHardware}
+              onStartHardwareRun={handleStartHardwareRun}
+              onStartDemo={handleStartDemo}
+              onValidateExperiment={aris.runExperimentValidation}
+              onRollbackExperiment={aris.rollbackExperiment}
+              onRollbackOptimization={aris.rollbackOptimization}
+            />
+          )}
+
+          {activeTab === 'experiments' && (
+            <ExperimentCenter
               experiments={aris.experiments}
               optimizations={aris.optimizations}
-              onRefresh={aris.refreshExperiments}
-              onNavigateValidation={(id) => setSelectedExperimentId(id)}
+              onRefresh={async () => {
+                await aris.refreshExperiments();
+              }}
+              onNavigateValidation={() => {
+                setActiveTab('reports');
+              }}
+              onRunExperiment={async (expId: string) => {
+                const res = await aris.runExperimentValidation(expId);
+                return Boolean(res);
+              }}
+              loading={Boolean(Object.values(aris.loading).some(Boolean))}
             />
-          )
-        )}
-
-        {activeTab === 'history' && (
-          <HistoryView
-            experiments={aris.experiments}
-            optimizations={aris.optimizations}
-            validations={aris.validations}
-            onLoadValidation={aris.loadValidation}
-            onNavigateValidation={handleNavigateValidation}
-          />
-        )}
-
-        {activeTab === 'settings' && (
-          <SettingsView
-            health={aris.health}
-            boards={aris.boards}
-            selectedBoard={aris.selectedBoard}
-            onSelectBoard={aris.setSelectedBoard}
-            hardwareConnected={aris.hardwareConnected}
-            onConnect={aris.connectHardware}
-            onDisconnect={aris.disconnectHardware}
-            isDemo={aris.isDemo}
-            onStartDemo={handleStartDemo}
-            onStopRun={handleStopRun}
-            backendOnline={aris.backendOnline}
-          />
-        )}
-      </main>
-
-      {/* Status Bar */}
-      <footer className="h-6 bg-[#080a10] border-t border-white/[0.06] px-4 flex items-center justify-between text-[10px] font-mono text-slate-400 shrink-0">
-        <div className="flex items-center gap-4">
-          <span className="flex items-center gap-1.5">
-            <span className={`w-1.5 h-1.5 rounded-full ${aris.backendOnline ? 'bg-emerald-400' : 'bg-red-500'}`} />
-            Core: {aris.selectedBoard?.architecture?.toUpperCase() || 'AVR8'}
-          </span>
-          <span>Clock: {aris.selectedBoard ? aris.selectedBoard.clock_hz / 1e6 : 16} MHz</span>
-          <span>Flash: {aris.selectedBoard ? aris.selectedBoard.flash_bytes / 1024 : 32} KB</span>
-          <span>SRAM: {aris.selectedBoard ? aris.selectedBoard.sram_bytes / 1024 : 2} KB</span>
-          {aris.isDemo && (
-            <span className="text-amber-400 font-semibold tracking-widest">DEMO MODE</span>
           )}
-        </div>
-        <div className="flex items-center gap-4">
-          {aris.activeRun && (
-            <span className="text-slate-500">
-              Run: {aris.activeRun.run_id} · {aris.activeRun.status}
+
+          {(activeTab === 'analysis' || activeTab === 'issues') && (
+            <AnalysisCenter
+              findings={aris.findings}
+              activeFirmware={aris.activeFirmware}
+              activeIDESketch={aris.activeIDESketch}
+              onGenerateCandidate={handleGenerateCandidate}
+              onNavigate={(t: string) => handleNavigate(t as NavTab)}
+              loading={Boolean(aris.loading.findings)}
+            />
+          )}
+
+          {activeTab === 'reports' && (
+            <ReportCenter
+              experiments={aris.experiments}
+              selectedBoard={aris.selectedBoard}
+              patentMarkdown={aris.patentMarkdown}
+            />
+          )}
+
+          {activeTab === 'settings' && (
+            <SettingsCenter
+              health={aris.health}
+              boards={aris.boards}
+              selectedBoard={aris.selectedBoard}
+              onSelectBoard={(b: BoardProfile) => aris.setSelectedBoard(b)}
+              hardwareConnected={aris.hardwareConnected}
+              onConnect={aris.connectHardware}
+              onDisconnect={aris.disconnectHardware}
+              backendOnline={aris.backendOnline}
+            />
+          )}
+
+          {activeTab === 'diagnostics' && (
+            <DiagnosticsView
+              health={aris.health}
+              backendOnline={aris.backendOnline}
+              hardwareConnected={aris.hardwareConnected}
+            />
+          )}
+
+          {activeTab === 'logs' && (
+            <LogViewer />
+          )}
+        </main>
+
+        {/* Global Engineering Status Strip */}
+        <footer className="h-6 bg-header border-t border-border px-4 flex items-center justify-between text-[11px] font-mono text-muted shrink-0 z-10">
+          <div className="flex items-center gap-4">
+            <span className="flex items-center gap-1.5">
+              <span className={`w-1.5 h-1.5 rounded-full ${aris.backendOnline ? 'bg-accent-green' : 'bg-accent-red'}`} />
+              API: {aris.backendOnline ? 'ONLINE' : 'OFFLINE'}
             </span>
-          )}
-          <span className="text-slate-400 font-semibold">ARIS v1.0</span>
-        </div>
-      </footer>
+            <span>Target: {aris.selectedBoard?.display_name || 'Generic AVR/ARM'}</span>
+            <span>Clock: {aris.selectedBoard ? (aris.selectedBoard.clock_hz ? aris.selectedBoard.clock_hz / 1e6 : aris.selectedBoard.clock_mhz || 16) : 16} MHz</span>
+            <span>SRAM: {aris.selectedBoard ? (aris.selectedBoard.sram_bytes ? aris.selectedBoard.sram_bytes / 1024 : 2) : 2} KB</span>
+            {aris.isDemo && (
+              <span className="text-accent-amber font-semibold tracking-wider">SIMULATION STANDBY</span>
+            )}
+          </div>
+          <div className="flex items-center gap-4">
+            {aris.activeRun && (
+              <span className="text-accent-cyan">
+                Run: {aris.activeRun.run_id} ({aris.activeRun.status})
+              </span>
+            )}
+            <span className="text-fg font-semibold">ARIS v3.0.0-PROFESSIONAL</span>
+          </div>
+        </footer>
+      </div>
 
-      {/* System Architecture & Workflow Guide Modal */}
+      {/* Global Modals & Drawers */}
+      <CommandPalette
+        isOpen={commandPaletteOpen}
+        onClose={() => setCommandPaletteOpen(false)}
+        onNavigate={handleNavigate}
+        onAutoDetect={() => setActiveTab('devices')}
+        onCompileFirmware={() => setActiveTab('firmware')}
+        onFlashFirmware={() => setActiveTab('firmware')}
+        onStartBaseline={() => aris.startRun(false)}
+        onStopBaseline={() => aris.stopRun()}
+        onToggleTheme={toggleTheme}
+        onToggleSidebar={() => {}}
+        onGenerateReport={() => setActiveTab('reports')}
+      />
+
+      <GlobalSearchModal
+        isOpen={searchModalOpen}
+        onClose={() => setSearchModalOpen(false)}
+        onNavigate={handleNavigate}
+        experiments={aris.experiments}
+        firmwareList={aris.firmwareList}
+        optimizations={aris.optimizations}
+        findings={aris.findings}
+      />
+
+      <NotificationDrawer
+        isOpen={notificationsOpen}
+        onClose={() => setNotificationsOpen(false)}
+        notifications={notifications}
+        onClearAll={() => setNotifications([])}
+        onMarkAllAsRead={() =>
+          setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
+        }
+      />
+
+      <AboutModal
+        isOpen={showAboutModal}
+        onClose={() => setShowAboutModal(false)}
+      />
+
       <SystemInfoModal
         isOpen={showInfoModal}
         onClose={() => setShowInfoModal(false)}
-        onNavigate={handleNavigate}
+        onNavigate={(tab) => handleNavigate(tab as NavTab)}
       />
     </div>
   );

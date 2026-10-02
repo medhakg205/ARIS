@@ -3,17 +3,78 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --bg-app: #f8fafc;
+    --bg-sidebar: #ffffff;
+    --bg-header: #ffffff;
+    --bg-card: #ffffff;
+    --bg-card-hover: #f1f5f9;
+    --bg-surface: #f1f5f9;
+    --bg-input: #ffffff;
+    --border-color: #e2e8f0;
+    --border-hover: #cbd5e1;
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --text-muted: #94a3b8;
+    --accent-cyan: #0284c7;
+    --accent-cyan-bg: rgba(2, 132, 199, 0.08);
+    --accent-green: #10b981;
+    --accent-green-bg: rgba(16, 185, 129, 0.08);
+    --accent-amber: #d97706;
+    --accent-amber-bg: rgba(217, 119, 6, 0.08);
+    --accent-red: #ef4444;
+    --accent-red-bg: rgba(239, 68, 68, 0.08);
+    --accent-purple: #8b5cf6;
+    --accent-purple-bg: rgba(139, 92, 246, 0.08);
+  }
+
+  .dark {
+    --bg-app: #0b0d13;
+    --bg-sidebar: #10131c;
+    --bg-header: #10131c;
+    --bg-card: #151924;
+    --bg-card-hover: #1b202e;
+    --bg-surface: #1b202e;
+    --bg-input: #12151e;
+    --border-color: rgba(255, 255, 255, 0.08);
+    --border-hover: rgba(255, 255, 255, 0.16);
+    --text-primary: #f8fafc;
+    --text-secondary: #94a3b8;
+    --text-muted: #64748b;
+    --accent-cyan: #00b4d8;
+    --accent-cyan-bg: rgba(0, 180, 216, 0.12);
+    --accent-green: #10b981;
+    --accent-green-bg: rgba(16, 185, 129, 0.12);
+    --accent-amber: #f59e0b;
+    --accent-amber-bg: rgba(245, 158, 11, 0.12);
+    --accent-red: #ef4444;
+    --accent-red-bg: rgba(239, 68, 68, 0.12);
+    --accent-purple: #a855f7;
+    --accent-purple-bg: rgba(168, 85, 247, 0.12);
+  }
+
+  html, body, #root {
+    height: 100%;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+
   body {
-    @apply bg-[#12151a] text-slate-200 font-sans antialiased;
+    background-color: var(--bg-app);
+    color: var(--text-primary);
+    font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     line-height: 1.5;
+    transition: background-color 0.2s ease, color 0.2s ease;
   }
 
   h1, h2, h3, h4, .font-heading, .font-samsung {
     font-family: 'Samsung Sharp Sans', 'Plus Jakarta Sans', sans-serif;
-    letter-spacing: -0.005em;
+    letter-spacing: -0.01em;
     line-height: 1.25;
   }
 
@@ -22,46 +83,40 @@
   }
 }
 
-/* Minimalist Tesla / Home Style Surfaces */
-.tesla-glass {
-  background: rgba(13, 17, 26, 0.72);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.tesla-glass-hover {
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.tesla-glass-hover:hover {
-  background: rgba(19, 25, 38, 0.85);
-  border-color: rgba(255, 255, 255, 0.16);
-  transform: translateY(-1px);
-  box-shadow: 0 12px 30px -10px rgba(0, 0, 0, 0.5);
-}
-
-.tesla-subtle-glow {
-  box-shadow: 0 0 30px -5px rgba(0, 229, 255, 0.12);
-}
-
-/* Google Home Smooth Control Pill */
-.home-pill {
-  border-radius: 9999px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+/* Professional Engineering Surfaces */
+.aris-card {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 0.5rem;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.home-pill:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.18);
+.aris-card-hover:hover {
+  background-color: var(--bg-card-hover);
+  border-color: var(--border-hover);
+  box-shadow: 0 4px 20px -5px rgba(0, 0, 0, 0.15);
 }
 
-/* Ultra-Clean Scrollbar */
+.aris-pill {
+  border-radius: 9999px;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  transition: all 0.15s ease;
+}
+
+.aris-pill:hover {
+  border-color: var(--border-hover);
+}
+
+/* Monospace & Code Panels */
+.font-code {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
+}
+
+/* Ultra-Clean Professional Scrollbar */
 ::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -69,21 +124,30 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(148, 163, 184, 0.2);
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.25);
+  background: rgba(148, 163, 184, 0.4);
 }
 
-/* Radar & Pulse Animations */
-@keyframes soft-pulse {
-  0% { transform: scale(0.95); opacity: 0.8; }
-  50% { transform: scale(1.05); opacity: 1; }
-  100% { transform: scale(0.95); opacity: 0.8; }
+/* Subtle Status Pulse */
+@keyframes soft-beacon {
+  0% { transform: scale(0.9); opacity: 0.7; }
+  50% { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(0.9); opacity: 0.7; }
 }
 
-.animate-soft-pulse {
-  animation: soft-pulse 3s ease-in-out infinite;
+.animate-soft-beacon {
+  animation: soft-beacon 2.5s ease-in-out infinite;
+}
+
+/* Reduced Motion preference */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

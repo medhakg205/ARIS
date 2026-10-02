@@ -131,6 +131,34 @@ export const apiSaveIDESketch = (path: string, sourceCode: string) =>
     path,
     source_code: sourceCode,
   });
+export const apiCompileFirmware = (sourceCode: string, boardId = 'arduino_uno', isSimulation = false) =>
+  post<{
+    status: string;
+    board_id: string;
+    fqbn?: string;
+    mcu: string;
+    toolchain: string;
+    binary_path?: string;
+    binary_size_bytes: number;
+    flash_usage_pct: number;
+    sram_usage_bytes: number;
+    sram_usage_pct: number;
+    size_unavailable?: boolean;
+    compiler_output: string;
+  }>('/api/firmware/compile', { source_code: sourceCode, board_id: boardId, is_simulation: isSimulation });
+export const apiFlashFirmware = (boardId: string, port: string, sourceCode?: string, binaryPath?: string) =>
+  post<{
+    status: string;
+    board_id: string;
+    port: string;
+    toolchain: string;
+    bytes_written: number;
+    verified: boolean;
+    message: string;
+  }>('/api/firmware/flash', { board_id: boardId, port, source_code: sourceCode, binary_path: binaryPath });
+export const apiTriggerHandshake = (timeoutSec = 2.0) =>
+  post<Record<string, unknown>>('/api/connection/handshake', { timeout_sec: timeoutSec });
+
 
 // ---- Runs ----
 export const apiCreateRun = (
@@ -168,6 +196,8 @@ export const apiGetFindings = (runId: string) =>
 // ---- Optimizations ----
 export const apiGetOptimizations = (runId: string) =>
   get<OptimizationCandidate[]>(`/api/runs/${runId}/optimizations`);
+export const apiGetOptimization = (optimizationId: string) =>
+  get<OptimizationCandidate>(`/api/optimizations/${optimizationId}`);
 export const apiApproveOptimization = (optimizationId: string) =>
   post<OptimizationCandidate>(`/api/optimizations/${optimizationId}/approve`);
 export const apiRejectOptimization = (optimizationId: string) =>
@@ -189,6 +219,11 @@ export const apiCreateExperiment = (
 export const apiListExperiments = () => get<ExperimentRecord[]>('/api/experiments');
 export const apiGetExperiment = (expId: string) =>
   get<ExperimentRecord>(`/api/experiments/${expId}`);
+export const apiRollbackExperiment = (expId: string) =>
+  post<{ status: string; message: string; experiment_id: string }>(`/api/experiments/${expId}/rollback`);
+export const apiRollbackOptimization = (optId: string) =>
+  post<OptimizationCandidate>(`/api/optimizations/${optId}/rollback`);
+
 
 // ---- Validation ----
 export const apiValidateExperiment = (expId: string, candidateRunId: string) =>
