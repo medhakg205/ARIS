@@ -42,10 +42,10 @@ interface FirmwareWorkspaceProps {
 }
 
 export const FirmwareWorkspace: React.FC<FirmwareWorkspaceProps> = ({
-  firmwareList,
+  firmwareList = [],
   activeFirmware,
   selectedBoard,
-  ideSketches,
+  ideSketches = [],
   activeIDESketch,
   onSyncIDESketch,
   onRefreshIDESketches,
@@ -123,7 +123,7 @@ export const FirmwareWorkspace: React.FC<FirmwareWorkspaceProps> = ({
           </div>
           <p className="text-xs text-[var(--text-muted)] mt-0.5 font-mono">
             {currentSketchName ? `${currentSketchName} · ` : ''}
-            Target: {selectedBoard?.display_name || 'Arduino Uno'} ({selectedBoard?.fqbn || 'arduino:avr:uno'})
+            Target: {selectedBoard ? `${selectedBoard.display_name} (${selectedBoard.fqbn || selectedBoard.architecture || '—'})` : '—'}
           </p>
         </div>
 

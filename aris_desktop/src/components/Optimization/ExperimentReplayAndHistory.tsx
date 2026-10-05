@@ -90,19 +90,19 @@ export const ExperimentReplayAndHistory: React.FC<ExperimentReplayAndHistoryProp
         {
           step: '1. Device Registered',
           time: new Date(activeExp.created_at || Date.now() - 3600000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-          detail: `Target Board: ${activeExp.board_id || selectedBoard?.name || 'ATmega328P'} (Port verified)`,
+          detail: `Target Board: ${activeExp.board_id || selectedBoard?.name || selectedBoard?.display_name || '—'} (Port verified)`,
           status: 'completed',
         },
         {
           step: '2. Baseline Run Captured',
           time: new Date(Date.parse(activeExp.created_at || new Date().toISOString()) + 4000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-          detail: `Run Ref: ${activeExp.baseline_run_id || 'RUN-BL-01'} · 320 samples collected`,
+          detail: `Run Ref: ${activeExp.baseline_run_id || '—'} · Baseline benchmark window`,
           status: 'completed',
         },
         {
           step: '3. Candidate Synthesized & Predicted',
           time: new Date(Date.parse(activeExp.created_at || new Date().toISOString()) + 8000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-          detail: `Candidate: ${activeOpt?.title || activeExp.optimization_id} · Confidence: ${((activeOpt?.confidence ?? 0.95) * 100).toFixed(0)}%`,
+          detail: `Candidate: ${activeOpt?.title || activeExp.optimization_id}${activeOpt?.confidence !== undefined ? ` · Confidence: ${((activeOpt.confidence) * 100).toFixed(0)}%` : ''}`,
           status: 'completed',
         },
         {
@@ -114,7 +114,7 @@ export const ExperimentReplayAndHistory: React.FC<ExperimentReplayAndHistoryProp
         {
           step: '5. Hardware Flash & Execution',
           time: new Date(Date.parse(activeExp.created_at || new Date().toISOString()) + 18000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-          detail: `Candidate Run: ${activeExp.candidate_run_id || 'RUN-CAND-LIVE'}`,
+          detail: `Candidate Run: ${activeExp.candidate_run_id || '—'}`,
           status: activeExp.status === 'FAILED' ? 'failed' : 'completed',
         },
         {
@@ -276,7 +276,11 @@ export const ExperimentReplayAndHistory: React.FC<ExperimentReplayAndHistoryProp
                       <span className="font-bold text-[var(--accent-green)]">
                         {valA?.metrics?.['loop_time_us']?.difference
                           ? `${(valA.metrics['loop_time_us'].difference / 1000).toFixed(2)} ms`
-                          : ((optA?.expected_effect as any)?.latency_delta_ms ?? -18.5) + ' ms'}
+                          : typeof (optA?.expected_effect as any)?.latency_delta_ms === 'number'
+                          ? `${(optA?.expected_effect as any).latency_delta_ms} ms`
+                          : typeof (optA?.expected_effect as any)?.loop_time_delta_ms === 'number'
+                          ? `${(optA?.expected_effect as any).loop_time_delta_ms} ms`
+                          : '—'}
                       </span>
                     </div>
                     <div className="flex justify-between">
@@ -284,7 +288,9 @@ export const ExperimentReplayAndHistory: React.FC<ExperimentReplayAndHistoryProp
                       <span className="font-bold text-[var(--accent-green)]">
                         {valA?.metrics?.['cpu_load_pct']?.difference
                           ? `${valA.metrics['cpu_load_pct'].difference.toFixed(1)}%`
-                          : ((optA?.expected_effect as any)?.cpu_load_delta_pct ?? -28.0) + '%'}
+                          : typeof (optA?.expected_effect as any)?.cpu_load_delta_pct === 'number'
+                          ? `${(optA?.expected_effect as any).cpu_load_delta_pct}%`
+                          : '—'}
                       </span>
                     </div>
                     <div className="flex justify-between">
@@ -292,7 +298,9 @@ export const ExperimentReplayAndHistory: React.FC<ExperimentReplayAndHistoryProp
                       <span className="font-bold text-[var(--accent-purple)]">
                         {valA?.metrics?.['sram_used_bytes']?.difference
                           ? `${valA.metrics['sram_used_bytes'].difference > 0 ? '+' : ''}${valA.metrics['sram_used_bytes'].difference} B`
-                          : ((optA?.expected_effect as any)?.sram_delta_bytes ?? 0) + ' B'}
+                          : typeof (optA?.expected_effect as any)?.sram_delta_bytes === 'number'
+                          ? `${(optA?.expected_effect as any).sram_delta_bytes > 0 ? '+' : ''}${(optA?.expected_effect as any).sram_delta_bytes} B`
+                          : '—'}
                       </span>
                     </div>
                   </div>
@@ -329,7 +337,11 @@ export const ExperimentReplayAndHistory: React.FC<ExperimentReplayAndHistoryProp
                       <span className="font-bold text-[var(--accent-green)]">
                         {valB?.metrics?.['loop_time_us']?.difference
                           ? `${(valB.metrics['loop_time_us'].difference / 1000).toFixed(2)} ms`
-                          : ((optB?.expected_effect as any)?.latency_delta_ms ?? -10.2) + ' ms'}
+                          : typeof (optB?.expected_effect as any)?.latency_delta_ms === 'number'
+                          ? `${(optB?.expected_effect as any).latency_delta_ms} ms`
+                          : typeof (optB?.expected_effect as any)?.loop_time_delta_ms === 'number'
+                          ? `${(optB?.expected_effect as any).loop_time_delta_ms} ms`
+                          : '—'}
                       </span>
                     </div>
                     <div className="flex justify-between">
@@ -337,7 +349,9 @@ export const ExperimentReplayAndHistory: React.FC<ExperimentReplayAndHistoryProp
                       <span className="font-bold text-[var(--accent-green)]">
                         {valB?.metrics?.['cpu_load_pct']?.difference
                           ? `${valB.metrics['cpu_load_pct'].difference.toFixed(1)}%`
-                          : ((optB?.expected_effect as any)?.cpu_load_delta_pct ?? -14.5) + '%'}
+                          : typeof (optB?.expected_effect as any)?.cpu_load_delta_pct === 'number'
+                          ? `${(optB?.expected_effect as any).cpu_load_delta_pct}%`
+                          : '—'}
                       </span>
                     </div>
                     <div className="flex justify-between">
@@ -345,7 +359,9 @@ export const ExperimentReplayAndHistory: React.FC<ExperimentReplayAndHistoryProp
                       <span className="font-bold text-[var(--accent-purple)]">
                         {valB?.metrics?.['sram_used_bytes']?.difference
                           ? `${valB.metrics['sram_used_bytes'].difference > 0 ? '+' : ''}${valB.metrics['sram_used_bytes'].difference} B`
-                          : ((optB?.expected_effect as any)?.sram_delta_bytes ?? 0) + ' B'}
+                          : typeof (optB?.expected_effect as any)?.sram_delta_bytes === 'number'
+                          ? `${(optB?.expected_effect as any).sram_delta_bytes > 0 ? '+' : ''}${(optB?.expected_effect as any).sram_delta_bytes} B`
+                          : '—'}
                       </span>
                     </div>
                   </div>
@@ -475,7 +491,11 @@ export const ExperimentReplayAndHistory: React.FC<ExperimentReplayAndHistoryProp
                     const eff = (opt?.expected_effect || {}) as Record<string, any>;
                     const loopDelta = val?.metrics?.['loop_time_us']?.difference
                       ? `${(val.metrics['loop_time_us'].difference / 1000).toFixed(1)} ms`
-                      : eff.latency_delta_ms ?? eff.loop_time_delta_ms ?? '-18.5 ms';
+                      : typeof eff.latency_delta_ms === 'number'
+                      ? `${eff.latency_delta_ms} ms`
+                      : typeof eff.loop_time_delta_ms === 'number'
+                      ? `${eff.loop_time_delta_ms} ms`
+                      : '—';
 
                     return (
                       <tr
@@ -503,7 +523,7 @@ export const ExperimentReplayAndHistory: React.FC<ExperimentReplayAndHistoryProp
                           </span>
                         </td>
                         <td className="p-2.5 text-[var(--text-secondary)]">
-                          {exp.board_id || 'arduino_uno'}
+                          {exp.board_id || '—'}
                         </td>
                         <td className="p-2.5 text-right text-[var(--accent-green)] font-bold">
                           {loopDelta}

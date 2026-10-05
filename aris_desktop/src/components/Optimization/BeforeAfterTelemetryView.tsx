@@ -100,11 +100,16 @@ export const BeforeAfterTelemetryView: React.FC<BeforeAfterTelemetryViewProps> =
             <Eye size={16} />
           </div>
           <div>
-            <h3 className="font-heading font-bold text-sm text-[var(--text-primary)]">
-              Before / After Runtime Telemetry Stream
-            </h3>
+            <div className="flex items-center gap-2">
+              <h3 className="font-heading font-bold text-sm text-[var(--text-primary)]">
+                Before / After Runtime Telemetry Stream
+              </h3>
+              <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[var(--accent-amber-bg)] text-[var(--accent-amber)] font-bold">
+                SIMULATION PREVIEW
+              </span>
+            </div>
             <p className="text-[11px] font-mono text-[var(--text-muted)]">
-              Synchronized cycle-by-cycle comparison: Baseline vs Optimized firmware
+              Modelled cycle-by-cycle comparison: Baseline vs Candidate firmware profile
             </p>
           </div>
         </div>

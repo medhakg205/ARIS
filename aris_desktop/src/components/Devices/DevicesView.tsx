@@ -421,7 +421,7 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
               </div>
               <div className="flex justify-between py-1 border-b border-[var(--border-color)]">
                 <span className="text-[var(--text-muted)]">Suggested Board:</span>
-                <span className="text-[var(--accent-cyan)] font-bold">{selectedPortDetail.suggested_board_id || 'arduino_uno'}</span>
+                <span className="text-[var(--accent-cyan)] font-bold">{selectedPortDetail.suggested_board_id || '—'}</span>
               </div>
             </div>
 

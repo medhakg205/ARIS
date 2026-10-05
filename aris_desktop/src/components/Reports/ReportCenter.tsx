@@ -191,7 +191,7 @@ This optimization was verified using ${isPhysical ? 'physical hardware runtime t
                   {selectedExp.title}
                 </h2>
                 <div className="text-xs font-mono text-[var(--text-muted)] mt-1">
-                  ID: {selectedExp.experiment_id} · Target: {selectedExp.board_id || selectedBoard?.display_name || 'Arduino Uno'}
+                  ID: {selectedExp.experiment_id} · Target: {selectedExp.board_id || selectedBoard?.display_name || '—'}
                 </div>
               </div>
 

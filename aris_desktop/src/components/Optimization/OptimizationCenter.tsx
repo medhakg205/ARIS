@@ -338,7 +338,7 @@ export const OptimizationCenter: React.FC<OptimizationCenterProps> = ({
             activeExperiment={activeExp}
             validationResult={activeVal}
             isValidating={isValidating || activeRun?.status === 'RUNNING'}
-            validationProgressPct={telemetryHistory.length > 0 ? Math.min(100, Math.round((telemetryHistory.length / 500) * 100)) : 75}
+            validationProgressPct={telemetryHistory.length > 0 ? Math.min(100, Math.round((telemetryHistory.length / 500) * 100)) : 0}
             sampleCount={telemetryHistory.length}
             hardwareConnected={hardwareConnected}
             isDemo={isDemo}
@@ -353,8 +353,8 @@ export const OptimizationCenter: React.FC<OptimizationCenterProps> = ({
           {(isValidating || activeRun?.status === 'RUNNING' || activeExp?.status === 'RUNNING') && (
             <LiveValidationMonitor
               isValidating={true}
-              progressPct={telemetryHistory.length > 0 ? Math.min(100, Math.round((telemetryHistory.length / 500) * 100)) : 82}
-              currentSamples={telemetryHistory.length || 320}
+              progressPct={telemetryHistory.length > 0 ? Math.min(100, Math.round((telemetryHistory.length / 500) * 100)) : 0}
+              currentSamples={telemetryHistory.length}
               targetSamples={500}
               latestSamples={latestSamples}
               isDemo={isDemo}
@@ -412,8 +412,14 @@ export const OptimizationCenter: React.FC<OptimizationCenterProps> = ({
                   {optimizations.map((opt) => {
                     const isSelected = selectedOpt?.optimization_id === opt.optimization_id;
                     const eff = (opt.expected_effect || {}) as Record<string, any>;
-                    const latDelta = eff.latency_delta_ms ?? eff.loop_time_delta_ms ?? -10.0;
-                    const sramDelta = eff.sram_delta_bytes ?? 0;
+                    const latDelta = typeof eff.latency_delta_ms === 'number'
+                      ? `${eff.latency_delta_ms} ms`
+                      : typeof eff.loop_time_delta_ms === 'number'
+                      ? `${eff.loop_time_delta_ms} ms`
+                      : '—';
+                    const sramDelta = typeof eff.sram_delta_bytes === 'number'
+                      ? eff.sram_delta_bytes >= 0 ? `+${eff.sram_delta_bytes}B` : `${eff.sram_delta_bytes}B`
+                      : '—';
 
                     return (
                       <div

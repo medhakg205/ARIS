@@ -407,9 +407,23 @@ export const App: React.FC = () => {
               <span className={`w-1.5 h-1.5 rounded-full ${aris.backendOnline ? 'bg-accent-green' : 'bg-accent-red'}`} />
               API: {aris.backendOnline ? 'ONLINE' : 'OFFLINE'}
             </span>
-            <span>Target: {aris.selectedBoard?.display_name || 'Generic AVR/ARM'}</span>
-            <span>Clock: {aris.selectedBoard ? (aris.selectedBoard.clock_hz ? aris.selectedBoard.clock_hz / 1e6 : aris.selectedBoard.clock_mhz || 16) : 16} MHz</span>
-            <span>SRAM: {aris.selectedBoard ? (aris.selectedBoard.sram_bytes ? aris.selectedBoard.sram_bytes / 1024 : 2) : 2} KB</span>
+            <span>
+              Target: {aris.deviceState === 'CONNECTED' && aris.selectedBoard
+                ? aris.selectedBoard.display_name
+                : aris.deviceState === 'SIMULATION' && aris.selectedBoard
+                ? `${aris.selectedBoard.display_name} (SIMULATION)`
+                : '—'}
+            </span>
+            <span>
+              Clock: {aris.selectedBoard
+                ? (aris.selectedBoard.clock_hz ? `${aris.selectedBoard.clock_hz / 1e6} MHz` : aris.selectedBoard.clock_mhz ? `${aris.selectedBoard.clock_mhz} MHz` : '—')
+                : '—'}
+            </span>
+            <span>
+              SRAM: {aris.selectedBoard
+                ? (aris.selectedBoard.sram_bytes ? `${aris.selectedBoard.sram_bytes / 1024} KB` : '—')
+                : '—'}
+            </span>
             {aris.isDemo && (
               <span className="text-accent-amber font-semibold tracking-wider">SIMULATION STANDBY</span>
             )}

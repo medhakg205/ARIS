@@ -211,7 +211,9 @@ export const TelemetryDashboard: React.FC<TelemetryDashboardProps> = ({
           </div>
           <p className="text-[11px] font-mono text-slate-400 mt-3 flex items-center justify-between">
             <span>Observer Bias: -{telemetry.observer_overhead_pct.toFixed(2)}%</span>
-            <span className="text-cyan-400">16MHz Clock</span>
+            <span className="text-cyan-400">
+              {boardDetail.clock_hz ? `${boardDetail.clock_hz / 1e6}MHz Clock` : boardDetail.clock_mhz ? `${boardDetail.clock_mhz}MHz Clock` : 'Clock'}
+            </span>
           </p>
         </div>
 

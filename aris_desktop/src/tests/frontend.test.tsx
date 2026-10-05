@@ -367,4 +367,42 @@ describe('v3.0.0 Navigation & Shell Components', () => {
     expect(screen.getByText('Reports')).toBeDefined();
     expect(screen.getByText(/VERIFICATION SUMMARY/i)).toBeDefined();
   });
+
+  // ---- Truthfulness & Zero-Default Behavior Tests ----
+  it('renders truthful zero-default states in PredictionVsRealityView when no validation data exists', async () => {
+    const { PredictionVsRealityView } = await import('../components/Optimization/PredictionVsRealityView');
+    render(
+      <PredictionVsRealityView
+        validationResult={null}
+        candidate={null}
+        experiment={null}
+      />
+    );
+
+    expect(screen.getByText('Prediction Accuracy Unavailable')).toBeDefined();
+    expect(screen.getByText(/Prediction accuracy is calculated only after candidate compilation/i)).toBeDefined();
+  });
+
+  it('renders truthful dashes in FirmwareWorkspace when no board is connected', async () => {
+    const { FirmwareWorkspace } = await import('../components/Firmware/FirmwareWorkspace');
+    render(
+      <FirmwareWorkspace
+        sketches={[]}
+        activeSketch={null}
+        onSelectSketch={vi.fn()}
+        onCreateSketch={vi.fn()}
+        onSaveSketch={vi.fn()}
+        onCompileSketch={vi.fn()}
+        onFlashSketch={vi.fn()}
+        compileStatus={{ state: 'IDLE' }}
+        flashStatus={{ state: 'IDLE' }}
+        selectedBoard={null}
+        compilationMetrics={null}
+        firmwareInventory={[]}
+      />
+    );
+
+    expect(screen.getByText(/Target: —/i)).toBeDefined();
+  });
 });
+

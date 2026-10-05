@@ -28,11 +28,11 @@ export const LiveValidationMonitor: React.FC<LiveValidationMonitorProps> = ({
   const jitterSample = latestSamples['loop_jitter'];
   const interruptSample = latestSamples['interrupt_rate'];
 
-  const loopTimeMs = loopTimeSample?.value !== undefined ? loopTimeSample.value.toFixed(2) : '8.31';
-  const cpuLoadPct = cpuLoadSample?.value !== undefined ? cpuLoadSample.value.toFixed(1) : '27.6';
-  const sramBytes = sramUsedSample?.value !== undefined ? Math.round(sramUsedSample.value) : '396';
-  const jitterMs = jitterSample?.value !== undefined ? jitterSample.value.toFixed(2) : '0.12';
-  const interruptHz = interruptSample?.value !== undefined ? Math.round(interruptSample.value) : '120';
+  const loopTimeMs = loopTimeSample?.value !== undefined ? loopTimeSample.value.toFixed(2) : '—';
+  const cpuLoadPct = cpuLoadSample?.value !== undefined ? cpuLoadSample.value.toFixed(1) : '—';
+  const sramBytes = sramUsedSample?.value !== undefined ? `${Math.round(sramUsedSample.value)}` : '—';
+  const jitterMs = jitterSample?.value !== undefined ? jitterSample.value.toFixed(2) : '—';
+  const interruptHz = interruptSample?.value !== undefined ? `${Math.round(interruptSample.value)}` : '—';
 
   if (!isValidating) return null;
 

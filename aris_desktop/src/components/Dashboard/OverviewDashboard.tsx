@@ -102,8 +102,8 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
     ? Math.round(sramSample.value)
     : null;
 
-  const maxSram = selectedBoard?.sram_bytes || (selectedBoard?.architecture === 'avr8' ? 2048 : 32768);
-  const maxFlash = selectedBoard?.flash_bytes || 32768;
+  const maxSram = selectedBoard?.sram_bytes || (selectedBoard ? (selectedBoard.architecture === 'avr8' ? 2048 : 32768) : null);
+  const maxFlash = selectedBoard?.flash_bytes || (selectedBoard ? 32768 : null);
 
   // Active firmware details
   const currentSketchName = activeIDESketch?.name || activeFirmware?.name || null;
@@ -309,7 +309,7 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
             {currentSketchName || 'No sketch selected'}
           </div>
           <div className="text-[11px] font-mono text-[var(--text-muted)] flex justify-between">
-            <span>FQBN: {selectedBoard?.fqbn || 'arduino:avr:uno'}</span>
+            <span>FQBN: {selectedBoard?.fqbn || '—'}</span>
             <span>{activeFirmware?.source_code ? `${activeFirmware.source_code.split('\n').length} lines` : '—'}</span>
           </div>
         </div>
@@ -424,10 +424,10 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
               <span className="text-2xl font-heading font-extrabold text-[var(--text-primary)]">
                 {sramUsed !== null ? `${sramUsed}` : '—'}
               </span>
-              <span className="text-xs font-mono text-[var(--text-muted)]">/ {maxSram} B</span>
+              <span className="text-xs font-mono text-[var(--text-muted)]">/ {maxSram ? `${maxSram} B` : '—'}</span>
             </div>
             <div className="text-[11px] font-mono text-[var(--text-muted)]">
-              {sramUsed !== null ? `${maxSram - sramUsed} bytes free headroom` : 'Static allocation'}
+              {sramUsed !== null && maxSram !== null ? `${maxSram - sramUsed} bytes free headroom` : 'Static allocation'}
             </div>
           </div>
         </div>
