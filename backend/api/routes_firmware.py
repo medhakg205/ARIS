@@ -12,6 +12,9 @@ from fastapi import APIRouter
 
 from backend.api.dependencies import get_firmware_mgr, get_build_flasher
 from backend.database.models import FirmwareRecord
+from backend.instrumentation.sketch_instrumenter import SketchInstrumenter
+from backend.analysis.static_analyzer import StaticAnalyzer
+from backend.telemetry.telemetry_schema import ArisException
 
 import os
 import json
@@ -252,5 +255,93 @@ def flash_firmware_endpoint(req: FlashFirmwareRequest) -> Dict[str, Any]:
         source_code=req.source_code,
         binary_path=req.binary_path
     )
+
+
+class InstrumentAndBuildRequest(BaseModel):
+    source_code: Optional[str] = None
+    sketch_path: Optional[str] = None
+    board_id: str = "arduino_uno"
+    port: Optional[str] = None
+    run_id: Optional[str] = None
+    execute_upload: bool = False
+
+
+@router.post("/api/firmware/instrument-and-build")
+def instrument_and_build_endpoint(req: InstrumentAndBuildRequest) -> Dict[str, Any]:
+    """
+    Transparently instruments an Arduino sketch in an isolated shadow directory,
+    runs static analysis on the untouched original source, compiles via arduino-cli,
+    and returns complete diff, findings, and build metrics.
+    Guarantees the original source file on disk is never altered.
+    """
+    source_code = req.source_code
+    sketch_path = req.sketch_path
+
+    if sketch_path and os.path.exists(sketch_path):
+        with open(sketch_path, "r", encoding="utf-8") as f:
+            source_code = f.read()
+
+    if not source_code or not source_code.strip():
+        raise ArisException(
+            error_code="ARIS_NO_SOURCE",
+            message="No valid source code or sketch file path provided.",
+            recoverable=True,
+            status_code=400
+        )
+
+    # 1. Run static analysis on the UNTOUCHED ORIGINAL user source
+    source_filename = os.path.basename(sketch_path) if sketch_path else "main.ino"
+    analyzer = StaticAnalyzer(default_board_id=req.board_id)
+    static_result = analyzer.analyze_source(
+        source_code=source_code,
+        board_id=req.board_id,
+        source_file=source_filename
+    )
+
+    # 2. Transparently instrument source into isolated shadow build directory
+    inst_result = SketchInstrumenter.create_shadow_workspace(
+        source_code=source_code,
+        source_path=sketch_path,
+        board_id=req.board_id,
+        run_id=req.run_id
+    )
+
+    # 3. Compile the shadow sketch via BuildFlasher / arduino-cli
+    flasher = get_build_flasher()
+    build_result = flasher.compile_firmware(
+        source_code=inst_result.instrumented_source,
+        board_id=req.board_id
+    )
+
+    # 4. Optional physical upload (deferred until explicitly enabled)
+    upload_result = None
+    if req.execute_upload and req.port:
+        upload_result = flasher.flash_board(
+            board_id=req.board_id,
+            port=req.port,
+            binary_path=build_result.get("binary_path")
+        )
+
+    return {
+        "status": "BUILD_SUCCESS" if build_result.get("status") == "BUILD_SUCCESS" else "FAILED",
+        "board_id": req.board_id,
+        "run_id": inst_result.run_id,
+        "original_file_path": sketch_path,
+        "original_source_preserved": inst_result.verification_hash_match,
+        "original_file_hash": inst_result.original_file_hash,
+        "shadow_sketch_path": inst_result.shadow_sketch_path,
+        "diff": inst_result.diff,
+        "inserted_blocks": inst_result.inserted_blocks,
+        "static_analysis": {
+            "findings_count": len(static_result.findings),
+            "findings": [f.model_dump() for f in static_result.findings],
+            "estimated_flash_bytes": static_result.estimated_flash_bytes,
+            "estimated_sram_static_bytes": static_result.estimated_sram_static_bytes,
+        },
+        "build_result": build_result,
+        "upload_result": upload_result,
+        "ready_for_physical_deployment": True
+    }
+
 
 

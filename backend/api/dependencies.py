@@ -39,7 +39,13 @@ _experiment_engine: ExperimentEngine = None
 def get_db() -> DatabaseEngine:
     global _db
     if _db is None:
-        db_path = os.environ.get("ARIS_DB_PATH", "aris.db")
+        db_path = os.environ.get("ARIS_DB_PATH")
+        if not db_path:
+            backend_db = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "aris.db"))
+            if os.path.exists(backend_db):
+                db_path = backend_db
+            else:
+                db_path = "aris.db"
         _db = DatabaseEngine(db_path)
         # Canonical boards provide hardware profiles (Flash/SRAM/FQBN)
         for profile in CANONICAL_BOARD_PROFILES.values():

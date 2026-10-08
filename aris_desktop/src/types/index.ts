@@ -540,4 +540,27 @@ export interface ClosedLoopVerificationReport {
   [key: string]: any;
 }
 
+// ---- Backend Process Supervisor States ----
+export type BackendLifecycleState = 'STARTING' | 'ONLINE' | 'RECOVERING' | 'OFFLINE';
+
+export interface ElectronBackendStatus {
+  state: BackendLifecycleState;
+  port: number;
+  pid?: number | null;
+  manual?: boolean;
+  [key: string]: any;
+}
+
+declare global {
+  interface Window {
+    electronAPI?: {
+      platform: string;
+      version: string;
+      onBackendStatusChange: (callback: (data: ElectronBackendStatus) => void) => () => void;
+      getBackendStatus: () => Promise<ElectronBackendStatus>;
+      restartBackend: () => Promise<{ success: boolean; error?: string }>;
+    };
+  }
+}
+
 

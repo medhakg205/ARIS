@@ -403,9 +403,17 @@ export const App: React.FC = () => {
         {/* Global Engineering Status Strip */}
         <footer className="h-6 bg-header border-t border-border px-4 flex items-center justify-between text-[11px] font-mono text-muted shrink-0 z-10">
           <div className="flex items-center gap-4">
-            <span className="flex items-center gap-1.5">
-              <span className={`w-1.5 h-1.5 rounded-full ${aris.backendOnline ? 'bg-accent-green' : 'bg-accent-red'}`} />
-              API: {aris.backendOnline ? 'ONLINE' : 'OFFLINE'}
+            <span className="flex items-center gap-1.5" title={`ARIS Analytical Backend State: ${aris.backendState}`}>
+              <span
+                className={`w-1.5 h-1.5 rounded-full ${
+                  aris.backendState === 'ONLINE'
+                    ? 'bg-accent-green'
+                    : aris.backendState === 'STARTING' || aris.backendState === 'RECOVERING'
+                    ? 'bg-accent-amber animate-pulse'
+                    : 'bg-accent-red'
+                }`}
+              />
+              API: {aris.backendState}
             </span>
             <span>
               Target: {aris.deviceState === 'CONNECTED' && aris.selectedBoard

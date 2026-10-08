@@ -1,0 +1,21 @@
+{
+  "handshake_ack": "$ARIS_ACK,2.0.0,1.0,arduino_uno,atmega328p,avr8,16000000,BALANCED#",
+  "total_raw_frames": 22,
+  "total_canonical_samples": 440,
+  "valid_packets": 440,
+  "rejected_packets": 0,
+  "resets_detected": 0,
+  "watchdogs_detected": 0,
+  "runtime_faults_detected": 0,
+  "loop_time_mean_ms": 1000.023,
+  "loop_time_min_ms": 1000.02,
+  "loop_time_max_ms": 1000.03,
+  "cpu_load_mean_pct": 99.187,
+  "sram_used_bytes": 1698,
+  "sram_free_bytes": 356,
+  "stack_used_bytes": 90,
+  "stack_hwm_bytes": 579,
+  "gpio_activity_total": 0,
+  "sample_first_frame": "$ARIS1,RUN-TRANSPARENT-PHYSICAL-001,arduino_uno,atmega328p,1000,1,100.00,1000.02,0.00,0.00,1698,356,90,579,0,0.00,0,0,0,0,0,0,0,0,0,2.00#",
+  "sample_last_frame": "$ARIS1,RUN-TRANSPARENT-PHYSICAL-001,arduino_uno,atmega328p,22181,22,99.21,1000.03,0.00,0.00,1698,356,90,579,0,0.00,0,0,0,0,0,0,0,0,0,2.00#"
+}

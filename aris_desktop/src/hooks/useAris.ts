@@ -19,6 +19,7 @@ import type {
   HealthStatus,
   CanonicalMetric,
   DeviceConnectionState,
+  BackendLifecycleState,
 } from '../types';
 import {
   apiHealth,
@@ -70,8 +71,14 @@ export interface MetricHistory {
 export function useARIS() {
   // ---- System State ----
   const [health, setHealth] = useState<HealthStatus | null>(null);
-  const [backendOnline, setBackendOnline] = useState(false);
+  const [backendState, setBackendState] = useState<BackendLifecycleState>('STARTING');
+  const backendOnline = backendState === 'ONLINE';
+  const backendStateRef = useRef<BackendLifecycleState>('STARTING');
   const [wsConnected, setWsConnected] = useState(false);
+
+  useEffect(() => {
+    backendStateRef.current = backendState;
+  }, [backendState]);
 
   // ---- Boards ----
   const [boards, setBoards] = useState<BoardProfile[]>([]);
@@ -115,39 +122,138 @@ export function useARIS() {
 
   const clearError = useCallback(() => setLastError(null), []);
 
-  // ---- Bootstrap: health check ----
+  // ---- Electron Supervisor IPC Bridge ----
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.electronAPI?.onBackendStatusChange) {
+      return;
+    }
+
+    const unsubscribe = window.electronAPI.onBackendStatusChange((data) => {
+      if (data?.state) {
+        setBackendState(data.state);
+        if (data.state === 'ONLINE') {
+          apiHealth()
+            .then((h) => {
+              setHealth(h);
+              setLastError(null);
+              setHardwareConnected(h.serial_connected);
+            })
+            .catch(() => {});
+        } else if (data.state === 'OFFLINE') {
+          setLastError(new ARISApiError(
+            'ARIS_BACKEND_UNAVAILABLE',
+            'Cannot reach ARIS backend. The background supervisor exhausted restart attempts.',
+            {},
+            true,
+          ));
+        } else {
+          // STARTING or RECOVERING: clear error banner while supervisor works
+          setLastError(null);
+        }
+      }
+    });
+
+    if (window.electronAPI.getBackendStatus) {
+      window.electronAPI.getBackendStatus().then((status) => {
+        if (status?.state) {
+          setBackendState(status.state);
+        }
+      }).catch(() => {});
+    }
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
+  // ---- Bootstrap & Background Health Check ----
   useEffect(() => {
     let mounted = true;
-    let retries = 0;
-    const maxFastRetries = 5;
+    let initialAttempts = 0;
+    const maxInitialAttempts = 15; // 15s startup window
+    let recoveryAttempts = 0;
+    const maxRecoveryAttempts = 5;
 
     const probe = async () => {
       try {
         const h = await apiHealth();
         if (!mounted) return;
         setHealth(h);
-        setBackendOnline(true);
+        setBackendState('ONLINE');
         setLastError(null);
         setHardwareConnected(h.serial_connected);
+        recoveryAttempts = 0;
       } catch {
         if (!mounted) return;
-        if (retries < maxFastRetries) {
-          retries++;
-          setTimeout(probe, 1000);
+        const current = backendStateRef.current;
+
+        if (current === 'STARTING') {
+          initialAttempts++;
+          if (initialAttempts < maxInitialAttempts) {
+            setTimeout(probe, 1000);
+            return;
+          }
+          setBackendState('OFFLINE');
+          setLastError(new ARISApiError(
+            'ARIS_BACKEND_UNAVAILABLE',
+            'Cannot reach ARIS backend on port 8765 after initial startup window.',
+            {},
+            true,
+          ));
           return;
         }
-        setBackendOnline(false);
-        setLastError(new ARISApiError(
-          'ARIS_BACKEND_UNAVAILABLE',
-          'Cannot reach ARIS backend. Is the server running on port 8765?',
-          {},
-          true,
-        ));
+
+        if (current === 'ONLINE') {
+          setBackendState('RECOVERING');
+          recoveryAttempts = 1;
+          setTimeout(probe, 1500);
+          return;
+        }
+
+        if (current === 'RECOVERING') {
+          recoveryAttempts++;
+          if (recoveryAttempts < maxRecoveryAttempts) {
+            setTimeout(probe, 2000);
+            return;
+          }
+          setBackendState('OFFLINE');
+          setLastError(new ARISApiError(
+            'ARIS_BACKEND_UNAVAILABLE',
+            'Cannot reach ARIS backend on port 8765. Process recovery exhausted.',
+            {},
+            true,
+          ));
+        }
       }
     };
+
     probe();
-    const interval = setInterval(probe, 8000);
-    return () => { mounted = false; clearInterval(interval); };
+    const interval = setInterval(probe, 6000);
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
+  }, []);
+
+  // ---- Manual Backend Restart Trigger ----
+  const restartBackend = useCallback(async () => {
+    if (typeof window !== 'undefined' && window.electronAPI?.restartBackend) {
+      setBackendState('RECOVERING');
+      setLastError(null);
+      try {
+        const res = await window.electronAPI.restartBackend();
+        if (res.success) {
+          const h = await apiHealth();
+          setHealth(h);
+          setBackendState('ONLINE');
+          setLastError(null);
+          return true;
+        }
+      } catch (_) {}
+      setBackendState('OFFLINE');
+      return false;
+    }
+    return false;
   }, []);
 
   // ---- Load boards ----
@@ -791,7 +897,7 @@ Automated compilation, flashing, and hypothesis-verified hardware recovery upon 
 
   return {
     // System
-    health, backendOnline, wsConnected,
+    health, backendOnline, backendState, restartBackend, wsConnected,
     // Boards
     boards, selectedBoard, setSelectedBoard,
     // Connection

@@ -86,6 +86,7 @@ const post = <T>(path: string, body?: unknown) => request<T>('POST', path, body)
 
 // ---- Health ----
 export const apiHealth = () => get<HealthStatus>('/api/health');
+export const apiLightweightHealth = () => get<{ status: string; service: string; port: number }>('/health');
 
 // ---- Boards ----
 export const apiGetBoards = () => get<BoardProfile[]>('/api/boards');
@@ -156,6 +157,55 @@ export const apiFlashFirmware = (boardId: string, port: string, sourceCode?: str
     verified: boolean;
     message: string;
   }>('/api/firmware/flash', { board_id: boardId, port, source_code: sourceCode, binary_path: binaryPath });
+
+export interface InstrumentAndBuildResponse {
+  status: string;
+  board_id: string;
+  run_id: string;
+  original_file_path?: string;
+  original_source_preserved: boolean;
+  original_file_hash?: string;
+  shadow_sketch_path?: string;
+  diff: string;
+  inserted_blocks: string[];
+  static_analysis: {
+    findings_count: number;
+    findings: any[];
+    estimated_flash_bytes: number;
+    estimated_sram_static_bytes: number;
+  };
+  build_result: {
+    status: string;
+    board_id: string;
+    fqbn?: string;
+    mcu: string;
+    toolchain: string;
+    binary_path?: string;
+    binary_size_bytes: number;
+    flash_usage_pct: number;
+    sram_usage_bytes: number;
+    sram_usage_pct: number;
+    compiler_output: string;
+  };
+  upload_result?: any;
+  ready_for_physical_deployment: boolean;
+}
+
+export const apiInstrumentAndBuild = (
+  sourceCode?: string,
+  sketchPath?: string,
+  boardId = 'arduino_uno',
+  port?: string,
+  executeUpload = false,
+) =>
+  post<InstrumentAndBuildResponse>('/api/firmware/instrument-and-build', {
+    source_code: sourceCode,
+    sketch_path: sketchPath,
+    board_id: boardId,
+    port,
+    execute_upload: executeUpload,
+  });
+
 export const apiTriggerHandshake = (timeoutSec = 2.0) =>
   post<Record<string, unknown>>('/api/connection/handshake', { timeout_sec: timeoutSec });
 

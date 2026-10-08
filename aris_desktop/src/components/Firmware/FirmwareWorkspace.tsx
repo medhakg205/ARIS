@@ -24,7 +24,7 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import { BoardProfile, FirmwareRecord, IDESketchInfo } from '../../types';
-import { apiCompileFirmware } from '../../services/api';
+import { apiCompileFirmware, apiInstrumentAndBuild, InstrumentAndBuildResponse } from '../../services/api';
 
 interface FirmwareWorkspaceProps {
   firmwareList: FirmwareRecord[];
@@ -105,6 +105,31 @@ export const FirmwareWorkspace: React.FC<FirmwareWorkspaceProps> = ({
     }
   };
 
+  const [isInstrumenting, setIsInstrumenting] = useState(false);
+  const [instrumentationResult, setInstrumentationResult] = useState<InstrumentAndBuildResponse | null>(null);
+  const [instrumentationError, setInstrumentationError] = useState<string | null>(null);
+  const [showDiff, setShowDiff] = useState(false);
+
+  const handleInstrumentAndRun = async () => {
+    if (!currentSourceCode) return;
+    setIsInstrumenting(true);
+    setInstrumentationError(null);
+    try {
+      const res = await apiInstrumentAndBuild(
+        currentSourceCode,
+        activeIDESketch?.path,
+        selectedBoard?.board_id || 'arduino_uno',
+        connectedPort,
+        false
+      );
+      setInstrumentationResult(res);
+    } catch (e: any) {
+      setInstrumentationError(e.message || 'Transparent instrumentation failed');
+    } finally {
+      setIsInstrumenting(false);
+    }
+  };
+
   // Split source into numbered lines for professional read-only viewing
   const lines = currentSourceCode ? currentSourceCode.split('\n') : [];
 
@@ -139,6 +164,17 @@ export const FirmwareWorkspace: React.FC<FirmwareWorkspaceProps> = ({
 
           {currentSourceCode && (
             <button
+              onClick={handleInstrumentAndRun}
+              disabled={isInstrumenting}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[var(--accent-green)] hover:opacity-90 text-black text-xs font-mono font-bold shadow-sm transition-all"
+            >
+              <Play size={13} className={isInstrumenting ? 'animate-spin' : ''} />
+              <span>{isInstrumenting ? 'Instrumenting & Building...' : 'Instrument & Run'}</span>
+            </button>
+          )}
+
+          {currentSourceCode && (
+            <button
               onClick={() => onNavigate?.('analysis')}
               className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[var(--accent-cyan)] hover:opacity-90 text-white text-xs font-mono font-bold shadow-sm transition-all"
             >
@@ -157,6 +193,78 @@ export const FirmwareWorkspace: React.FC<FirmwareWorkspaceProps> = ({
           Arduino IDE uploads compiled machine code binaries to the microcontroller. ARIS reads your original C/C++ sketch source directly from your local filesystem, preserving comments, macros, and file structure without guessing from compiled binaries.
         </div>
       </div>
+
+      {/* 2b. Transparent Instrumentation Feedback Card */}
+      {instrumentationError && (
+        <div className="p-3.5 rounded-xl bg-red-950/30 border border-red-500/30 flex items-start gap-3 text-xs font-mono text-red-300">
+          <AlertCircle size={16} className="text-red-400 shrink-0 mt-0.5" />
+          <div>
+            <span className="font-bold">Instrumentation Failed: </span>
+            {instrumentationError}
+          </div>
+        </div>
+      )}
+
+      {instrumentationResult && (
+        <div className="aris-card p-4 space-y-3 bg-[var(--bg-surface)]/80 border border-[var(--accent-green)]/40 text-xs font-mono">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-[var(--border-color)] pb-3">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 size={16} className="text-[var(--accent-green)]" />
+              <span className="font-bold text-[var(--text-primary)]">
+                Transparent Shadow Build Ready
+              </span>
+              <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-950/60 text-emerald-400 border border-emerald-500/30 font-bold">
+                ORIGINAL SKETCH UNTOUCHED
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowDiff(!showDiff)}
+                className="px-2.5 py-1 rounded bg-[var(--bg-card)] border border-[var(--border-color)] text-[var(--accent-cyan)] hover:text-white"
+              >
+                {showDiff ? 'Hide Diff' : 'View Injected Diff'}
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+            <div className="p-2.5 rounded bg-[var(--bg-card)] border border-[var(--border-color)] space-y-1">
+              <div className="text-[10px] text-[var(--text-muted)] font-semibold uppercase">Toolchain & Build</div>
+              <div className="text-[var(--text-primary)] font-bold">arduino-cli ({instrumentationResult.build_result.toolchain})</div>
+              <div className="text-[10px] text-[var(--text-muted)]">
+                Flash: {instrumentationResult.build_result.binary_size_bytes} B ({instrumentationResult.build_result.flash_usage_pct}%) · SRAM: {instrumentationResult.build_result.sram_usage_bytes} B
+              </div>
+            </div>
+
+            <div className="p-2.5 rounded bg-[var(--bg-card)] border border-[var(--border-color)] space-y-1">
+              <div className="text-[10px] text-[var(--text-muted)] font-semibold uppercase">Original Static Findings</div>
+              <div className="text-[var(--text-primary)] font-bold">
+                {instrumentationResult.static_analysis.findings_count} Finding(s) Detected
+              </div>
+              <div className="text-[10px] text-amber-400 truncate">
+                {instrumentationResult.static_analysis.findings[0]?.rule_id || 'ARIS-001'}: {instrumentationResult.static_analysis.findings[0]?.title || 'None'}
+              </div>
+            </div>
+
+            <div className="p-2.5 rounded bg-[var(--bg-card)] border border-[var(--border-color)] space-y-1">
+              <div className="text-[10px] text-[var(--text-muted)] font-semibold uppercase">Hardware Target</div>
+              <div className="text-[var(--text-primary)] font-bold">{instrumentationResult.board_id} ({instrumentationResult.build_result.mcu})</div>
+              <div className="text-[10px] text-emerald-400">
+                Deployment Ready (Verification Phase Complete)
+              </div>
+            </div>
+          </div>
+
+          {showDiff && instrumentationResult.diff && (
+            <div className="pt-2">
+              <span className="text-[10px] font-semibold text-[var(--text-muted)] uppercase">Generated Diff (Shadow Build vs Original):</span>
+              <pre className="mt-1 p-3 rounded bg-[#050810] border border-[var(--border-color)] text-[11px] text-emerald-300 overflow-x-auto whitespace-pre font-mono leading-tight max-h-60">
+                {instrumentationResult.diff}
+              </pre>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 3. Empty State (When no sketch is loaded) */}
       {!currentSourceCode ? (

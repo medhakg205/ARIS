@@ -14,3 +14,4 @@ __pycache__/
 build_artifacts/
 dist/
 aris_desktop/dist/
+.aris_build/
