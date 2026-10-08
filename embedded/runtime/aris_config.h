@@ -5,7 +5,11 @@
 
 #define ARIS_DEFAULT_EPOCH_MS 100
 #define ARIS_RUN_ID_MAX_LEN 32
+#if defined(ARDUINO) || defined(__AVR__)
+#define ARIS_BUFFER_SIZE 160
+#else
 #define ARIS_BUFFER_SIZE 256
+#endif
 
 typedef struct {
     ArisInstrumentationMode mode;

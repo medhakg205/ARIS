@@ -25,11 +25,14 @@ void UnoBoardAdapter::init() {
     reset_flags = MCUSR;
     MCUSR = 0; // Clear reset flags
 
-    // Paint stack watermark from end of BSS to current SP - safety margin
-    uint8_t *p = &__bss_end;
+    // Paint stack watermark from end of heap/BSS to current SP - safety margin
+    extern uint8_t *__brkval;
+    uint8_t *p = (__brkval == 0 ? &__bss_end : __brkval);
     uint8_t *sp = (uint8_t *)SP;
-    while (p < sp - 32) {
-        *p++ = STACK_SENTINEL;
+    if (p < sp - 32) {
+        while (p < sp - 32) {
+            *p++ = STACK_SENTINEL;
+        }
     }
 #else
     reset_flags = 0x01; // Power-on reset mock

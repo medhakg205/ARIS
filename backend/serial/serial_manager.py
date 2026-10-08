@@ -33,7 +33,7 @@ class SerialManager:
         self._serial_handle = None
         self._read_thread: Optional[threading.Thread] = None
         self._stop_event = threading.Event()
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
 
     def set_active_run(self, run_id: Optional[str]) -> None:
         """Sets or updates the active run_id associated with incoming telemetry."""
@@ -161,7 +161,11 @@ class SerialManager:
             self.handshake_data = None
             with self._lock:
                 if self._serial_handle and self._serial_handle.is_open:
-                    self._serial_handle.write(b"$ARIS_HELLO#\n")
+                    # Write $ delimiter, brief micro-pause to ensure MCU serial FIFO edge, then payload
+                    self._serial_handle.write(b"$")
+                    self._serial_handle.flush()
+                    time.sleep(0.005)
+                    self._serial_handle.write(b"ARIS_HELLO#\n")
                     self._serial_handle.flush()
 
             start_t = time.time()

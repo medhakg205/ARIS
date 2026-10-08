@@ -56,6 +56,10 @@ public:
     // Telemetry Generation & Transmission
     void dispatch_telemetry(uint32_t now_ms);
 
+    // Serial Command Handling & Handshake
+    void handle_serial_commands();
+    void send_handshake_ack();
+
     // Getters for internal components (for testing and verification)
     BoardAdapter* get_adapter() { return adapter; }
     InstrumentationManager* get_manager() { return manager; }

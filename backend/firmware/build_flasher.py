@@ -112,14 +112,17 @@ class BuildFlasher:
                     with open(sketch_file, "w", encoding="utf-8") as f:
                         f.write(source_code)
 
+                    embedded_lib_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "embedded"))
                     cmd = [
                         self.arduino_cli_path,
                         "compile",
                         "--fqbn", profile.fqbn,
                         "--format", "json",
-                        "--export-binaries",
-                        sketch_dir
+                        "--export-binaries"
                     ]
+                    if os.path.exists(embedded_lib_path):
+                        cmd.extend(["--library", embedded_lib_path])
+                    cmd.append(sketch_dir)
                     proc = subprocess.run(
                         cmd,
                         capture_output=True,
@@ -322,6 +325,17 @@ class BuildFlasher:
             )
 
         # Real hardware flashing via arduino-cli upload
+        # CRITICAL SERIAL OWNERSHIP: Release active serial connection before flashing
+        try:
+            from backend.api.dependencies import get_serial_mgr
+            serial_mgr = get_serial_mgr()
+            if serial_mgr.connected and (serial_mgr.current_port == port or not port):
+                logger.info(f"Releasing serial port {serial_mgr.current_port} prior to flashing.")
+                serial_mgr.disconnect()
+                time.sleep(0.5)
+        except Exception as e:
+            logger.warning(f"Error disconnecting serial prior to flash: {e}")
+
         try:
             with tempfile.TemporaryDirectory() as td:
                 sketch_dir = os.path.join(td, "sketch")

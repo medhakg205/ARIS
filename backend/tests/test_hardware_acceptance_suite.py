@@ -25,6 +25,7 @@ Tests:
 """
 
 import pytest
+import unittest.mock
 from fastapi.testclient import TestClient
 
 from backend.api.app import app
@@ -99,7 +100,8 @@ def test_runner_execution_without_hardware():
     db = DatabaseEngine(db_path=":memory:")
     runner = HardwareAcceptanceRunner(db=db, board_id="arduino_uno")
 
-    session = runner.run_session(port=None, force_simulation=False)
+    with unittest.mock.patch("backend.acceptance.acceptance_runner.scan_serial_ports", return_value=[]):
+        session = runner.run_session(port=None, force_simulation=False)
 
     assert session.session_id.startswith("has_")
     assert session.overall_status == "PHYSICAL_HARDWARE_REQUIRED"

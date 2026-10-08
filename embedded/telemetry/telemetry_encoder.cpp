@@ -1,5 +1,6 @@
 #include "telemetry_encoder.h"
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 int TelemetryEncoder::encode_json(const ArisTelemetrySample* sample, char* buffer, size_t buffer_size) {
@@ -70,35 +71,144 @@ int TelemetryEncoder::encode_compact_frame(
 ) {
     if (!buffer || buffer_size == 0) return -1;
 
-    // Fast framing: $ARIS1,run_id,board_id,mcu,timestamp,seq,cpu,loop_t,loop_f,jitter,s_used,s_free,stk_used,stk_max,isr_c,isr_r,gpio,adc,uart,spi,i2c,timer,reset,wdt,fault,overhead#
-    return snprintf(
-        buffer,
-        buffer_size,
-        "$ARIS1,%s,%s,%s,%lu,%lu,%.2f,%.2f,%.2f,%.2f,%u,%u,%u,%u,%u,%.2f,%u,%u,%u,%u,%u,%u,%u,%u,%u,%.2f#",
-        run_id ? run_id : ARIS_DEFAULT_RUN_ID,
-        board_id ? board_id : "arduino_uno",
-        mcu ? mcu : "atmega328p",
-        (unsigned long)timestamp_ms,
-        (unsigned long)sequence,
-        (double)cpu_load,
-        (double)loop_time,
-        (double)loop_frequency,
-        (double)loop_jitter,
-        (unsigned int)sram_used,
-        (unsigned int)sram_free,
-        (unsigned int)stack_used,
-        (unsigned int)stack_high_water,
-        (unsigned int)isr_count,
-        (double)isr_rate,
-        (unsigned int)gpio,
-        (unsigned int)adc,
-        (unsigned int)uart,
-        (unsigned int)spi,
-        (unsigned int)i2c,
-        (unsigned int)timer,
-        (unsigned int)reset_event,
-        (unsigned int)watchdog_event,
-        (unsigned int)runtime_fault,
-        (double)overhead_us
-    );
+    size_t idx = 0;
+    auto append_s = [&](const char* s) {
+        if (!s) return;
+        while (*s && idx < buffer_size - 1) {
+            buffer[idx++] = *s++;
+        }
+    };
+    auto append_u = [&](uint32_t val) {
+        char nb[12];
+        int ni = 0;
+        if (val == 0) {
+            nb[ni++] = '0';
+        } else {
+            while (val > 0) {
+                nb[ni++] = '0' + (val % 10);
+                val /= 10;
+            }
+            for (int i = 0; i < ni / 2; i++) {
+                char t = nb[i];
+                nb[i] = nb[ni - 1 - i];
+                nb[ni - 1 - i] = t;
+            }
+        }
+        nb[ni] = '\0';
+        append_s(nb);
+    };
+    auto append_f = [&](float val) {
+#if defined(ARDUINO) || defined(__AVR__)
+        char fb[16];
+        dtostrf(val, 1, 2, fb);
+        // Trim leading spaces if any
+        char* p = fb;
+        while (*p == ' ') p++;
+        append_s(p);
+#else
+        char fb[16];
+        snprintf(fb, sizeof(fb), "%.2f", (double)val);
+        append_s(fb);
+#endif
+    };
+
+    append_s("$ARIS1,");
+    append_s(run_id ? run_id : ARIS_DEFAULT_RUN_ID); append_s(",");
+    append_s(board_id ? board_id : "arduino_uno"); append_s(",");
+    append_s(mcu ? mcu : "atmega328p"); append_s(",");
+    append_u(timestamp_ms); append_s(",");
+    append_u(sequence); append_s(",");
+    append_f(cpu_load); append_s(",");
+    append_f(loop_time); append_s(",");
+    append_f(loop_frequency); append_s(",");
+    append_f(loop_jitter); append_s(",");
+    append_u(sram_used); append_s(",");
+    append_u(sram_free); append_s(",");
+    append_u(stack_used); append_s(",");
+    append_u(stack_high_water); append_s(",");
+    append_u(isr_count); append_s(",");
+    append_f(isr_rate); append_s(",");
+    append_u(gpio); append_s(",");
+    append_u(adc); append_s(",");
+    append_u(uart); append_s(",");
+    append_u(spi); append_s(",");
+    append_u(i2c); append_s(",");
+    append_u(timer); append_s(",");
+    append_u(reset_event); append_s(",");
+    append_u(watchdog_event); append_s(",");
+    append_u(runtime_fault); append_s(",");
+    append_f(overhead_us);
+    append_s("#");
+
+    buffer[idx] = '\0';
+    return (int)idx;
+}
+
+int TelemetryEncoder::encode_handshake_ack(
+    const char* runtime_version,
+    const char* protocol_version,
+    const char* board_id,
+    const char* mcu,
+    const char* architecture,
+    uint32_t clock_hz,
+    const char* mode_name,
+    char* buffer,
+    size_t buffer_size
+) {
+    if (!buffer || buffer_size < 40) return -1;
+
+    const char* rv = runtime_version ? runtime_version : "2.0.0";
+    const char* pv = protocol_version ? protocol_version : "1.0";
+    const char* b = board_id ? board_id : "arduino_uno";
+    const char* m = mcu ? mcu : "atmega328p";
+    const char* a = architecture ? architecture : "avr8";
+    const char* md = mode_name ? mode_name : "BALANCED";
+    uint32_t clk = clock_hz ? clock_hz : 16000000UL;
+
+    size_t idx = 0;
+    auto append_str = [&](const char* s) {
+        while (*s && idx < buffer_size - 1) {
+            buffer[idx++] = *s++;
+        }
+    };
+
+    append_str("$ARIS_ACK,");
+    append_str(rv);
+    append_str(",");
+    append_str(pv);
+    append_str(",");
+    append_str(b);
+    append_str(",");
+    append_str(m);
+    append_str(",");
+    append_str(a);
+    append_str(",");
+
+    // Format clk decimal
+    char num_buf[12];
+    int n_idx = 0;
+    if (clk == 0) {
+        num_buf[n_idx++] = '0';
+    } else {
+        uint32_t temp = clk;
+        while (temp > 0 && n_idx < 10) {
+            num_buf[n_idx++] = '0' + (temp % 10);
+            temp /= 10;
+        }
+        // Reverse
+        for (int i = 0; i < n_idx / 2; i++) {
+            char t = num_buf[i];
+            num_buf[i] = num_buf[n_idx - 1 - i];
+            num_buf[n_idx - 1 - i] = t;
+        }
+    }
+    num_buf[n_idx] = '\0';
+    append_str(num_buf);
+
+    append_str(",");
+    append_str(md);
+    append_str("#");
+
+    buffer[idx] = '\0';
+    return (int)idx;
 }

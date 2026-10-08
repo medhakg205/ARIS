@@ -39,6 +39,19 @@ public:
         char* buffer,
         size_t buffer_size
     );
+
+    // Encodes ARIS runtime handshake response ($ARIS_ACK,...)
+    static int encode_handshake_ack(
+        const char* runtime_version,
+        const char* protocol_version,
+        const char* board_id,
+        const char* mcu,
+        const char* architecture,
+        uint32_t clock_hz,
+        const char* mode_name,
+        char* buffer,
+        size_t buffer_size
+    );
 };
 
 #endif // ARIS_TELEMETRY_ENCODER_H

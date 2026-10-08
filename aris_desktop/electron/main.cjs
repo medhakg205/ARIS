@@ -73,10 +73,14 @@ function createWindow() {
       contextIsolation: true,
       webSecurity: false // allow local API calls to http://127.0.0.1:8765
     },
+    show: false,
     autoHideMenuBar: true
   });
 
-  mainWindow.maximize();
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.maximize();
+    mainWindow.show();
+  });
 
   const indexPath = path.join(__dirname, '..', 'dist', 'index.html');
   console.log(`[ARIS Electron] Loading GUI from: ${indexPath}`);

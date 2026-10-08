@@ -23,10 +23,13 @@ void NanoBoardAdapter::init() {
     reset_flags = MCUSR;
     MCUSR = 0;
 
-    uint8_t *p = &__bss_end;
+    extern uint8_t *__brkval;
+    uint8_t *p = (__brkval == 0 ? &__bss_end : __brkval);
     uint8_t *sp = (uint8_t *)SP;
-    while (p < sp - 32) {
-        *p++ = STACK_SENTINEL;
+    if (p < sp - 32) {
+        while (p < sp - 32) {
+            *p++ = STACK_SENTINEL;
+        }
     }
 #else
     reset_flags = 0x01;

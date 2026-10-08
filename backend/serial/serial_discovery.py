@@ -110,11 +110,23 @@ def find_arduino_cli_path() -> Optional[str]:
     return None
 
 
+# In-memory short-lived cache for arduino-cli board list results to prevent polling spikes
+_cli_boards_cache: Dict[str, Any] = {}
+_cli_boards_cache_time: float = 0.0
+_CLI_CACHE_TTL_SEC: float = 4.0
+
 def query_arduino_cli_boards() -> Dict[str, Dict[str, Any]]:
     """
     Executes 'arduino-cli board list --format json' to obtain official FQBN board detection.
     Returns mapping from serial port address (e.g. 'COM5' or '/dev/ttyUSB0') to board info.
+    Caches results for 4 seconds to avoid spawning continuous subprocesses on frequent polls.
     """
+    global _cli_boards_cache, _cli_boards_cache_time
+    import time
+    now = time.time()
+    if _cli_boards_cache and (now - _cli_boards_cache_time < _CLI_CACHE_TTL_SEC):
+        return _cli_boards_cache
+
     cli_path = find_arduino_cli_path()
     if not cli_path:
         return {}
@@ -144,6 +156,8 @@ def query_arduino_cli_boards() -> Dict[str, Dict[str, Any]]:
                     "protocol": port_info.get("protocol", "serial"),
                     "hardware_id": port_info.get("hardware_id", "")
                 }
+        _cli_boards_cache = results
+        _cli_boards_cache_time = now
         return results
     except Exception as e:
         logger.debug(f"arduino-cli discovery query failed or timed out: {e}")

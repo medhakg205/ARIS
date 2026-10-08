@@ -88,11 +88,75 @@ void ArisRuntime::loop_exit() {
     if (!initialized) return;
     manager->on_loop_exit(micros());
 
+    // Process incoming serial queries (e.g. $ARIS_HELLO#)
+    handle_serial_commands();
+
     uint32_t now = millis();
     if (now - last_epoch_ms >= config.epoch_interval_ms) {
         dispatch_telemetry(now);
         last_epoch_ms = now;
     }
+}
+
+void ArisRuntime::send_handshake_ack() {
+    const char* mode_str = "BALANCED";
+    if (config.mode == ARIS_MODE_LOW) mode_str = "LOW";
+    else if (config.mode == ARIS_MODE_FULL) mode_str = "FULL";
+
+    const char* board_id = "arduino_uno";
+    const char* mcu = "atmega328p";
+    const char* arch = "avr8";
+    uint32_t clock_hz = 16000000UL;
+
+    if (adapter && adapter->get_profile()) {
+        const BoardProfile* prof = adapter->get_profile();
+        if (prof->board_id) board_id = prof->board_id;
+        if (prof->mcu) mcu = prof->mcu;
+        if (prof->architecture) arch = prof->architecture;
+        if (prof->clock_hz) clock_hz = prof->clock_hz;
+    }
+
+    TelemetryEncoder::encode_handshake_ack(
+        "2.0.0",
+        ARIS_PROTOCOL_VERSION,
+        board_id,
+        mcu,
+        arch,
+        clock_hz,
+        mode_str,
+        transmit_buffer,
+        ARIS_BUFFER_SIZE
+    );
+
+#if defined(ARDUINO)
+    Serial.println(transmit_buffer);
+#endif
+}
+
+void ArisRuntime::handle_serial_commands() {
+#if defined(ARDUINO)
+    static char cmd_buf[32];
+    static uint8_t cmd_idx = 0;
+
+    while (Serial.available() > 0) {
+        char c = (char)Serial.read();
+        if (c == '$') {
+            cmd_idx = 0;
+            cmd_buf[cmd_idx++] = c;
+        } else if (cmd_idx > 0) {
+            if (cmd_idx < sizeof(cmd_buf) - 1) {
+                cmd_buf[cmd_idx++] = c;
+            }
+            if (c == '#') {
+                cmd_buf[cmd_idx] = '\0';
+                if (strcmp(cmd_buf, "$ARIS_HELLO#") == 0) {
+                    send_handshake_ack();
+                }
+                cmd_idx = 0;
+            }
+        }
+    }
+#endif
 }
 
 void ArisRuntime::record_isr() {
@@ -171,14 +235,16 @@ void ArisRuntime::dispatch_telemetry(uint32_t now_ms) {
         Serial.println(transmit_buffer);
 #endif
     } else if (config.enable_json_stream) {
-        // Line-delimited canonical JSON stream
-        ArisTelemetrySample samples[ARIS_METRIC_COUNT];
-        uint8_t count = collector->collect_all_samples(now_ms, epoch_duration, samples, ARIS_METRIC_COUNT);
-        for (uint8_t i = 0; i < count; i++) {
-            TelemetryEncoder::encode_json(&samples[i], transmit_buffer, ARIS_BUFFER_SIZE);
+        // Line-delimited canonical JSON stream using single-sample buffer to protect MCU stack
+        ArisTelemetrySample sample;
+        for (int m = 0; m < ARIS_METRIC_COUNT; m++) {
+            ArisMetricType metric = (ArisMetricType)m;
+            if (collector->collect_sample(metric, now_ms, epoch_duration, &sample)) {
+                TelemetryEncoder::encode_json(&sample, transmit_buffer, ARIS_BUFFER_SIZE);
 #if defined(ARDUINO)
-            Serial.println(transmit_buffer);
+                Serial.println(transmit_buffer);
 #endif
+            }
         }
     }
 }

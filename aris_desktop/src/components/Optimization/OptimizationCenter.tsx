@@ -456,7 +456,7 @@ export const OptimizationCenter: React.FC<OptimizationCenterProps> = ({
                           </div>
                           <div className="flex items-center gap-1 text-[var(--accent-cyan)]">
                             <Layers size={11} />
-                            <span>SRAM: {sramDelta >= 0 ? `+${sramDelta}B` : `${sramDelta}B`}</span>
+                            <span>SRAM: {sramDelta}</span>
                           </div>
                         </div>
 

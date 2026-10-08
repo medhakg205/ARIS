@@ -280,6 +280,7 @@ export interface ExperimentRecord {
     candidate_flash_bytes?: number;
     [key: string]: any;
   };
+  baseline_metrics?: Record<string, { mean?: number; [key: string]: any }>;
 }
 
 // ---- Validation ----
@@ -309,6 +310,7 @@ export interface ValidationResult {
   validation_status: ValidationStatus;
   reason: string;
   created_at: string;
+  p_value?: number;
   // Prediction vs Reality (set by frontend after comparison)
   prediction_accuracy?: {
     metrics_compared: Record<string, {

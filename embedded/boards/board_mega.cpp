@@ -24,10 +24,13 @@ void MegaBoardAdapter::init() {
     MCUSR = 0;
 
     // Mega 2560 has 8KB of SRAM up to 0x21FF
-    uint8_t *p = &__bss_end;
+    extern uint8_t *__brkval;
+    uint8_t *p = (__brkval == 0 ? &__bss_end : __brkval);
     uint8_t *sp = (uint8_t *)SP;
-    while (p < sp - 64) {
-        *p++ = STACK_SENTINEL;
+    if (p < sp - 64) {
+        while (p < sp - 64) {
+            *p++ = STACK_SENTINEL;
+        }
     }
 #else
     reset_flags = 0x01;

@@ -3,7 +3,7 @@
  * Demonstrates non-blocking state machine with ARIS runtime instrumentation.
  */
 
-#include "../../runtime/aris_runtime.h"
+#include <aris_runtime.h>
 
 const int LED_PIN = 13;
 unsigned long last_toggle_ms = 0;

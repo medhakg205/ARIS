@@ -387,18 +387,15 @@ describe('v3.0.0 Navigation & Shell Components', () => {
     const { FirmwareWorkspace } = await import('../components/Firmware/FirmwareWorkspace');
     render(
       <FirmwareWorkspace
-        sketches={[]}
-        activeSketch={null}
-        onSelectSketch={vi.fn()}
-        onCreateSketch={vi.fn()}
-        onSaveSketch={vi.fn()}
-        onCompileSketch={vi.fn()}
-        onFlashSketch={vi.fn()}
-        compileStatus={{ state: 'IDLE' }}
-        flashStatus={{ state: 'IDLE' }}
+        firmwareList={[]}
+        activeFirmware={null}
         selectedBoard={null}
-        compilationMetrics={null}
-        firmwareInventory={[]}
+        ideSketches={[]}
+        activeIDESketch={null}
+        onSyncIDESketch={vi.fn()}
+        onRefreshIDESketches={vi.fn()}
+        onSelectFirmware={vi.fn()}
+        hardwareConnected={false}
       />
     );
 

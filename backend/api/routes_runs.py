@@ -183,4 +183,46 @@ def stop_run(run_id: str) -> Dict[str, Any]:
     except Exception:
         pass
 
+    # Auto-synthesize optimization candidates for findings
+    try:
+        from backend.api.routes_analysis import get_run_analysis
+        from backend.hardware.capability_negotiator import CapabilityGraphBuilder
+        from backend.optimization.candidate_generation_engine import CandidateGenerationEngine
+        from backend.experiments.experiment_memory import ExperimentMemory
+
+        analysis = get_run_analysis(run_id)
+        findings = analysis.get("findings", [])
+        if findings:
+            from backend.database.models import OptimizationRecord
+            board_prof = get_board_profile(run.board_id)
+            cap_graph = CapabilityGraphBuilder.build(board_prof)
+            memory = ExperimentMemory(db.list_memory_records())
+
+            for finding in findings:
+                candidate = CandidateGenerationEngine.generate_candidate_for_finding(
+                    finding=finding,
+                    capability_graph=cap_graph,
+                    memory=memory
+                )
+                candidate_rec = OptimizationRecord(
+                    optimization_id=candidate.candidate_id,
+                    finding_id=candidate.finding_id,
+                    run_id=run_id,
+                    title=candidate.title,
+                    problem=candidate.rationale,
+                    source_location=candidate.source_location,
+                    before_code=candidate.diff.original_code,
+                    after_code=candidate.diff.proposed_code,
+                    reason=candidate.rationale,
+                    hardware_consideration=candidate.hardware_consideration,
+                    expected_effect=candidate.raw_prediction.as_vector(),
+                    risk=candidate.safety_risk,
+                    confidence=candidate.uncertainty.confidence_score,
+                    validation_required=True,
+                    status="PROPOSED"
+                )
+                db.save_optimization(candidate_rec)
+    except Exception:
+        pass
+
     return run.model_dump()

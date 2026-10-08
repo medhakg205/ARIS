@@ -159,6 +159,12 @@ void test_telemetry_encoding() {
     assert(strncmp(buf, "$ARIS1,", 7) == 0);
     assert(buf[compact_len - 1] == '#');
 
+    int ack_len = TelemetryEncoder::encode_handshake_ack(
+        "2.0.0", "1.0", "arduino_uno", "atmega328p", "avr8", 16000000UL, "BALANCED", buf, sizeof(buf)
+    );
+    assert(ack_len > 0);
+    assert(strcmp(buf, "$ARIS_ACK,2.0.0,1.0,arduino_uno,atmega328p,avr8,16000000,BALANCED#") == 0);
+
     printf("  -> TelemetryEncoder passed.\n");
 }
 
