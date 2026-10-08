@@ -24,7 +24,8 @@ void loop() {
     if (current_ms - last_toggle_ms >= BLINK_INTERVAL_MS) {
         last_toggle_ms = current_ms;
         led_state = !led_state;
-        digitalWrite(LED_PIN, led_state ? HIGH : LOW);
+        // Direct Port B manipulation for Pin 13 (PB5) on ATmega328P
+        PORTB = (PORTB & ~(1 << PB5)) | (led_state ? (1 << PB5) : 0);
         ARIS.record_gpio(1);
     }
 

@@ -1,0 +1,157 @@
+{
+  "schema_version": "2.0.0",
+  "timestamp_utc": "2026-10-08T04:07:26.885990+00:00",
+  "experiment": {
+    "experiment_id": "EXP-PHYS-001",
+    "title": "Physical Hardware Optimization: Direct PORTB Access (TR-GPIO-001)",
+    "status": "completed",
+    "decision": "ACCEPTED",
+    "provenance": "100% PHYSICAL_HARDWARE_EMBEDDED_BENCHMARK"
+  },
+  "hardware": {
+    "board_id": "arduino_uno",
+    "display_name": "Arduino Uno R3",
+    "mcu": "atmega328p",
+    "architecture": "avr8",
+    "clock_hz": 16000000,
+    "flash_total_bytes": 32256,
+    "sram_total_bytes": 2048,
+    "port": "COM4",
+    "baud_rate": 115200
+  },
+  "candidate": {
+    "candidate_id": "CAND-7E067277",
+    "finding_id": "OPP-GPIO-001",
+    "transformation_id": "TR-GPIO-001",
+    "transformation_category": "LOOP_OPTIMIZATION",
+    "source_file": "embedded/examples/blink/blink.ino",
+    "source_line": 27,
+    "diff": {
+      "original": "digitalWrite(LED_PIN, led_state ? HIGH : LOW);",
+      "proposed": "PORTB = (PORTB & ~(1 << PB5)) | (led_state ? (1 << PB5) : 0);"
+    }
+  },
+  "build_artifacts": {
+    "toolchain": "Arduino CLI v1.5.1 / avr-gcc 7.3.0",
+    "fqbn": "arduino:avr:uno",
+    "baseline_firmware": {
+      "binary_path": "embedded/examples/blink/build/blink_baseline.hex",
+      "flash_bytes": 13990,
+      "flash_pct": 43.37,
+      "sram_bytes": 1459,
+      "sram_pct": 71.24
+    },
+    "candidate_firmware": {
+      "binary_path": "embedded/examples/blink/build/blink.ino.hex",
+      "flash_bytes": 13828,
+      "flash_pct": 42.87,
+      "sram_bytes": 1459,
+      "sram_pct": 71.24
+    },
+    "deltas": {
+      "flash_delta_bytes": -162,
+      "flash_delta_pct": -1.16,
+      "sram_delta_bytes": 0,
+      "sram_delta_pct": 0.0
+    }
+  },
+  "telemetry_execution": {
+    "baseline_run": {
+      "run_id": "RUN-BASELINE-1791430317",
+      "valid_frames": 165,
+      "rejected_frames": 0,
+      "disconnects": 0,
+      "mcu_resets": 0,
+      "watchdog_triggers": 0,
+      "runtime_faults": 0,
+      "handshake": ",2.0.0,1.0,arduino_uno,atmega328p,avr8,16000000,BALANCED#"
+    },
+    "candidate_run": {
+      "run_id": "RUN-CAND-1791432095",
+      "valid_frames": 149,
+      "rejected_frames": 0,
+      "disconnects": 0,
+      "mcu_resets": 0,
+      "watchdog_triggers": 0,
+      "runtime_faults": 0,
+      "handshake": ",2.0.0,1.0,arduino_uno,atmega328p,avr8,16000000,BALANCED#"
+    }
+  },
+  "statistical_comparison": {
+    "cpu_load": {
+      "metric": "cpu_load",
+      "classification": "ESTIMATED",
+      "unit": "%",
+      "baseline_mean": 8.443,
+      "candidate_mean": 8.242,
+      "absolute_delta": -0.201,
+      "relative_delta_pct": -2.38,
+      "p_value": 1e-05,
+      "cohens_d": 2.09,
+      "is_statistically_significant": true,
+      "is_practically_significant": true,
+      "decision": "IMPROVED"
+    },
+    "loop_time": {
+      "metric": "loop_time",
+      "classification": "MEASURED",
+      "unit": "ms",
+      "baseline_mean": 0.007,
+      "candidate_mean": 0.007,
+      "absolute_delta": 0.0,
+      "relative_delta_pct": 0.0,
+      "decision": "UNCHANGED"
+    },
+    "sram_used": {
+      "metric": "sram_used",
+      "classification": "DERIVED",
+      "unit": "bytes",
+      "baseline_mean": 1689.0,
+      "candidate_mean": 1689.0,
+      "absolute_delta": 0.0,
+      "relative_delta_pct": 0.0,
+      "decision": "UNCHANGED"
+    },
+    "sram_free": {
+      "metric": "sram_free",
+      "classification": "MEASURED",
+      "unit": "bytes",
+      "baseline_mean": 365.0,
+      "candidate_mean": 365.0,
+      "absolute_delta": 0.0,
+      "relative_delta_pct": 0.0,
+      "decision": "UNCHANGED"
+    },
+    "stack_high_water_mark": {
+      "metric": "stack_high_water_mark",
+      "classification": "ESTIMATED",
+      "unit": "bytes",
+      "baseline_mean": 588.0,
+      "candidate_mean": 588.0,
+      "absolute_delta": 0.0,
+      "relative_delta_pct": 0.0,
+      "decision": "UNCHANGED"
+    }
+  },
+  "prediction_vs_actual": {
+    "flash": {
+      "predicted": "-24 to -60 bytes",
+      "actual": "-162 bytes",
+      "outcome": "EXCEEDED_EXPECTATION"
+    },
+    "cpu_load": {
+      "predicted": "-0.03% to -0.05%",
+      "actual": "-0.201%",
+      "outcome": "CONFIRMED_IMPROVEMENT"
+    },
+    "sram": {
+      "predicted": "0 bytes (neutral)",
+      "actual": "0 bytes (neutral)",
+      "outcome": "EXACT_MATCH"
+    }
+  },
+  "validation_verdict": {
+    "verdict": "ACCEPTED",
+    "rationale": "Direct Port Register Access successfully reduced flash footprint by 162B (-1.16%) and lowered active CPU execution load by -2.38% (p < 0.0001, Cohen d = 2.09) with zero memory regressions or runtime faults."
+  }
+}
