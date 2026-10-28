@@ -46,6 +46,7 @@ const TAB_TITLES: Record<string, { title: string; subtitle: string }> = {
   dashboard: { title: 'Dashboard', subtitle: 'System & Firmware Status' },
   firmware: { title: 'Firmware', subtitle: 'Arduino Project & Source Code' },
   telemetry: { title: 'Telemetry', subtitle: 'Real-time Runtime Observability' },
+  monitor: { title: 'Telemetry', subtitle: 'Real-time Runtime Observability' },
   analysis: { title: 'Analysis', subtitle: 'Detected Bottlenecks & Code Findings' },
   issues: { title: 'Analysis', subtitle: 'Detected Bottlenecks & Code Findings' },
   optimize: { title: 'Optimize', subtitle: 'Recommended Firmware Optimizations' },
@@ -84,64 +85,66 @@ export const TopBar: React.FC<TopBarProps> = ({
 
   const currentTabInfo = TAB_TITLES[activeTab] || { title: 'ARIS', subtitle: '' };
 
-  const isConnected = deviceState === 'CONNECTED' || (hardwareConnected && Boolean(selectedBoard));
+  const isConnected = deviceState === 'CONNECTED' || hardwareConnected;
   const isSimulation = deviceState === 'SIMULATION' || isDemo;
   const isDetecting = deviceState === 'DETECTING';
 
   return (
-    <header className="h-12 bg-[var(--bg-header)] border-b border-[var(--border-color)] px-4 flex items-center justify-between shrink-0 select-none z-30">
+    <header className="h-14 bg-[var(--bg-header)] border-b border-[var(--border-color)] px-4 sm:px-6 flex items-center justify-between shrink-0 select-none z-30 transition-colors">
       {/* Left: Project / Breadcrumbs */}
       <div className="flex items-center gap-3 min-w-0">
-        <div className="flex items-center gap-2 text-xs font-mono">
-          <span className="text-[var(--text-muted)] font-bold tracking-wider">ARIS</span>
+        <div className="flex items-center gap-2 text-xs font-sans">
+          <span className="text-[var(--text-muted)] font-bold tracking-wider font-mono">ARIS</span>
           <span className="text-[var(--text-muted)]">/</span>
-          <span className="text-[var(--text-primary)] font-medium truncate max-w-[140px] sm:max-w-[220px]">
-            {projectName ? projectName : <span className="text-[var(--text-muted)]">No project loaded</span>}
+          <span className="text-[var(--text-primary)] font-semibold truncate max-w-[140px] sm:max-w-[220px]">
+            {projectName ? projectName : <span className="text-[var(--text-muted)] font-normal">No project loaded</span>}
           </span>
         </div>
 
-        {/* Authoritative Hardware Status Badge */}
-        <div className="hidden md:flex items-center gap-1.5 pl-3 border-l border-[var(--border-color)]">
-          <span
-            className={`w-2 h-2 rounded-full ${
-              isConnected
-                ? 'bg-[var(--accent-green)] animate-soft-beacon'
-                : isSimulation
-                ? 'bg-[var(--accent-amber)]'
-                : isDetecting
-                ? 'bg-[var(--accent-cyan)] animate-ping'
-                : 'bg-[var(--text-muted)]'
-            }`}
-          />
-          <span className="text-xs font-mono font-medium text-[var(--text-secondary)]">
-            {isConnected
-              ? `${selectedBoard?.display_name || 'Arduino'} (${connectedPort || 'Connected'})`
-              : isSimulation
-              ? `Simulation Active (${selectedBoard?.display_name || 'Virtual'})`
-              : isDetecting
-              ? 'Scanning Ports...'
-              : 'No Hardware Connected'}
-          </span>
-          {isConnected && confidence && confidence !== 'UNKNOWN' && (
+        {/* Authoritative Hardware Status Badge (Google Home pill style) */}
+        <div className="hidden md:flex items-center gap-2 pl-3 border-l border-[var(--border-color)]">
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[var(--bg-surface)] border border-[var(--border-color)] text-xs font-sans text-[var(--text-secondary)]">
             <span
-              className={`text-[9px] font-mono px-1.5 py-0.5 rounded font-semibold ${
-                confidence === 'CONFIRMED'
-                  ? 'bg-[var(--accent-green-bg)] text-[var(--accent-green)]'
-                  : 'bg-[var(--accent-cyan-bg)] text-[var(--accent-cyan)]'
+              className={`w-2 h-2 rounded-full shrink-0 ${
+                isConnected
+                  ? 'bg-[var(--accent-green)] animate-soft-beacon'
+                  : isSimulation
+                  ? 'bg-[var(--accent-amber)]'
+                  : isDetecting
+                  ? 'bg-[var(--accent-cyan)] animate-ping'
+                  : 'bg-[var(--text-muted)]'
               }`}
-            >
-              {confidence}
+            />
+            <span className="truncate max-w-[200px]">
+              {isConnected
+                ? `${selectedBoard?.display_name || 'Arduino Uno'} (${connectedPort || 'COM4'})`
+                : isSimulation
+                ? `Simulation (${selectedBoard?.display_name || 'Virtual'})`
+                : isDetecting
+                ? 'Scanning Ports...'
+                : 'No Hardware Connected'}
             </span>
-          )}
+            {isConnected && confidence && confidence !== 'UNKNOWN' && (
+              <span
+                className={`text-[9px] font-mono px-1.5 py-0.2 rounded font-bold uppercase ${
+                  confidence === 'CONFIRMED'
+                    ? 'bg-[var(--accent-green-bg)] text-[var(--accent-green)]'
+                    : 'bg-[var(--accent-cyan-bg)] text-[var(--accent-cyan)]'
+                }`}
+              >
+                {confidence}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Center: Current View Title */}
+      {/* Center: Current View Title (Tesla minimalist center) */}
       <div className="hidden lg:flex flex-col items-center justify-center leading-none">
         <span className="text-xs font-heading font-bold text-[var(--text-primary)]">
           {currentTabInfo.title}
         </span>
-        <span className="text-[10px] text-[var(--text-muted)] mt-0.5 font-mono">
+        <span className="text-[10px] text-[var(--text-muted)] mt-0.5 font-sans">
           {currentTabInfo.subtitle}
         </span>
       </div>
@@ -150,7 +153,7 @@ export const TopBar: React.FC<TopBarProps> = ({
       <div className="flex items-center gap-2">
         {/* Telemetry Status Badge */}
         {telemetryActive && (
-          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-[var(--accent-cyan-bg)] text-[var(--accent-cyan)] border border-[var(--border-color)]">
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-[var(--accent-cyan-bg)] text-[var(--accent-cyan)] border border-[var(--accent-cyan)]/20">
             <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent-cyan)] animate-pulse" />
             <span>LIVE TELEMETRY</span>
           </div>
@@ -158,7 +161,7 @@ export const TopBar: React.FC<TopBarProps> = ({
 
         {/* Provenance Badge */}
         <span
-          className={`text-[9px] font-mono font-bold tracking-wider px-2 py-0.5 rounded border ${
+          className={`text-[9px] font-mono font-bold tracking-wider px-2 py-0.5 rounded-full border ${
             isSimulation
               ? 'bg-[var(--accent-amber-bg)] text-[var(--accent-amber)] border-[var(--accent-amber)]/30'
               : isConnected
@@ -173,11 +176,11 @@ export const TopBar: React.FC<TopBarProps> = ({
         <button
           onClick={onOpenCommandPalette}
           title="Command Palette (Ctrl+K)"
-          className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-[var(--bg-surface)] hover:bg-[var(--bg-card-hover)] border border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-xs transition-colors"
+          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[var(--bg-surface)] hover:bg-[var(--bg-card-hover)] border border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-xs font-sans transition-colors"
         >
-          <Command size={12} className="text-[var(--text-muted)]" />
-          <span className="text-[11px] font-mono hidden sm:inline">Commands</span>
-          <kbd className="hidden lg:inline text-[9px] font-mono px-1 py-0.2 rounded bg-[var(--bg-card)] border border-[var(--border-color)] text-[var(--text-muted)]">
+          <Command size={13} className="text-[var(--text-muted)]" />
+          <span className="text-xs font-sans hidden sm:inline">Commands</span>
+          <kbd className="hidden lg:inline text-[9px] font-mono px-1.5 py-0.5 rounded bg-[var(--bg-card)] border border-[var(--border-color)] text-[var(--text-muted)]">
             Ctrl+K
           </kbd>
         </button>

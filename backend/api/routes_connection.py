@@ -35,6 +35,7 @@ def connection_status() -> Dict[str, Any]:
     ports = [p.to_dict() for p in ports_objects]
 
     status = serial_mgr.get_status()
+    status["deployment_active"] = serial_mgr.is_deployment_active()
     status["discovered_ports"] = ports
     status["available_ports"] = [p["device"] for p in ports]
     status["simulator_active"] = simulator.running
@@ -43,14 +44,46 @@ def connection_status() -> Dict[str, Any]:
     return status
 
 
+class HandshakeRequest(BaseModel):
+    timeout_sec: float = Field(default=3.0)
+    port: Optional[str] = Field(default=None)
+    baud_rate: int = Field(default=115200)
+    run_id: Optional[str] = Field(default=None)
+
+
 @router.post("/api/connection/handshake")
-def trigger_handshake(timeout_sec: float = 2.0) -> Dict[str, Any]:
+def trigger_handshake(req: Optional[HandshakeRequest] = None, timeout_sec: Optional[float] = None) -> Dict[str, Any]:
     """
     Sends an explicit $ARIS_HELLO# query to the connected physical target,
     confirming embedded runtime version, architecture, and board identity.
+    If not already connected and a port is provided, reconnects first.
     """
+    t = timeout_sec if timeout_sec is not None else (req.timeout_sec if req else 3.0)
     serial_mgr = get_serial_mgr()
-    return serial_mgr.perform_handshake(timeout_sec=timeout_sec)
+
+    target_port = req.port if req else None
+    if target_port and (not serial_mgr.connected or serial_mgr.current_port != target_port):
+        try:
+            baud = req.baud_rate if req else 115200
+            run_id = req.run_id if req else None
+            serial_mgr.connect(port=target_port, baud_rate=baud, run_id=run_id, force=True)
+            time.sleep(1.0)
+        except Exception as e:
+            logger.warning(f"Failed to auto-connect to {target_port} before handshake: {e}")
+
+    result = serial_mgr.perform_handshake(timeout_sec=t)
+
+    # If handshake succeeded and run_id was provided, ensure active run is linked
+    if result.get("handshake_success") and req and req.run_id:
+        serial_mgr.set_active_run(req.run_id)
+        from backend.database.db_engine import DatabaseEngine
+        db = DatabaseEngine()
+        existing_run = db.get_run(req.run_id)
+        if existing_run and existing_run.status != "RUNNING":
+            existing_run.status = "RUNNING"
+            db.save_run(existing_run)
+
+    return result
 
 
 @router.post("/api/connection/auto-detect")
@@ -61,6 +94,16 @@ def auto_detect_and_connect(run_id: Optional[str] = None) -> Dict[str, Any]:
     performs runtime handshake, resolves dynamic BoardProfile, detects identity mismatches,
     and saves the resolved profile to the persistent database.
     """
+    serial_mgr = get_serial_mgr()
+    if serial_mgr.is_deployment_active():
+        return {
+            "found": False,
+            "connected": False,
+            "message": "Microcontroller firmware deployment is actively in progress. Auto-connection suppressed.",
+            "board": None,
+            "confidence": "DEPLOYING"
+        }
+
     ports = scan_serial_ports()
     if not ports:
         return {
@@ -174,3 +217,20 @@ def disconnect_hardware() -> Dict[str, Any]:
     """
     serial_mgr = get_serial_mgr()
     return serial_mgr.disconnect()
+
+
+class ReleaseRequest(BaseModel):
+    port: Optional[str] = None
+    wait_ms: int = Field(default=500)
+
+
+@router.post("/api/connection/release")
+def release_hardware_serial(req: Optional[ReleaseRequest] = None) -> Dict[str, Any]:
+    """
+    Releases active serial handle completely to allow flashing or external access.
+    Idempotent and safe to call when disconnected.
+    """
+    serial_mgr = get_serial_mgr()
+    port = req.port if req else None
+    wait_ms = req.wait_ms if req else 500
+    return serial_mgr.release_serial(port=port, wait_ms=wait_ms)

@@ -8,6 +8,24 @@ export default {
   theme: {
     extend: {
       colors: {
+        app: 'var(--bg-app)',
+        card: 'var(--bg-card)',
+        surface: 'var(--bg-surface)',
+        sidebar: 'var(--bg-sidebar)',
+        header: 'var(--bg-header)',
+        border: 'var(--border-color)',
+        hover: 'var(--bg-card-hover)',
+        fg: 'var(--text-primary)',
+        muted: 'var(--text-muted)',
+        primary: 'var(--text-primary)',
+        secondary: 'var(--text-secondary)',
+        accent: {
+          cyan: 'var(--accent-cyan)',
+          green: 'var(--accent-green)',
+          amber: 'var(--accent-amber)',
+          red: 'var(--accent-red)',
+          purple: 'var(--accent-purple)',
+        },
         aris: {
           bg: '#12151a',
           surface: '#161920',

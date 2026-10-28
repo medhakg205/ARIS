@@ -9,10 +9,10 @@ import React from 'react';
 import type { MetricClassification } from '../../types';
 
 const CLASSIFICATION_STYLES: Record<MetricClassification, string> = {
-  MEASURED: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
-  ESTIMATED: 'bg-amber-500/10 text-amber-400 border-amber-500/30',
-  DERIVED: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30',
-  PREDICTED: 'bg-purple-500/10 text-purple-400 border-purple-500/30',
+  MEASURED: 'bg-[var(--accent-green-bg)] text-[var(--accent-green)] border-[var(--accent-green)]/30',
+  ESTIMATED: 'bg-[var(--accent-amber-bg)] text-[var(--accent-amber)] border-[var(--accent-amber)]/30',
+  DERIVED: 'bg-[var(--accent-cyan-bg)] text-[var(--accent-cyan)] border-[var(--accent-cyan)]/30',
+  PREDICTED: 'bg-[var(--accent-purple-bg)] text-[var(--accent-purple)] border-[var(--accent-purple)]/30',
 };
 
 interface MetricBadgeProps {
@@ -39,12 +39,12 @@ export const MetricBadge: React.FC<MetricBadgeProps> = ({
   if (compact) {
     return (
       <div className="flex items-center gap-2 py-1">
-        <span className="text-xs font-mono text-slate-400 uppercase tracking-wider w-28 shrink-0">
+        <span className="text-xs font-mono text-[var(--text-muted)] uppercase tracking-wider w-28 shrink-0">
           {label}
         </span>
-        <span className="text-sm font-mono text-slate-100 tabular-nums">
+        <span className="text-sm font-mono text-[var(--text-primary)] tabular-nums">
           {value}
-          {unit && <span className="text-slate-500 ml-0.5 text-xs">{unit}</span>}
+          {unit && <span className="text-[var(--text-muted)] ml-0.5 text-xs">{unit}</span>}
         </span>
         <span className={`text-[9px] font-mono px-1 py-0.5 rounded border ${cls} ml-auto`}>
           {classification}
@@ -54,9 +54,9 @@ export const MetricBadge: React.FC<MetricBadgeProps> = ({
   }
 
   return (
-    <div className="bg-[#1e232b] border border-white/[0.08] hover:border-white/[0.16] transition-all duration-200 rounded-xl p-2.5 sm:p-3 flex flex-col justify-between group shadow-sm">
+    <div className="bg-[var(--bg-card)] border border-[var(--border-color)] hover:border-[var(--border-hover)] transition-all duration-200 rounded-xl p-2.5 sm:p-3 flex flex-col justify-between group shadow-sm">
       <div className="flex items-center justify-between gap-1.5">
-        <span className="text-[10px] font-sans font-medium text-slate-400 tracking-wider uppercase truncate">
+        <span className="text-[10px] font-sans font-medium text-[var(--text-muted)] tracking-wider uppercase truncate">
           {label}
         </span>
         <span className={`text-[8.5px] font-sans font-semibold px-1.5 py-0.5 rounded-full border ${cls} shrink-0`}>
@@ -65,25 +65,25 @@ export const MetricBadge: React.FC<MetricBadgeProps> = ({
       </div>
 
       <div className="mt-1.5 flex items-baseline gap-1">
-        <span className="text-lg sm:text-xl font-bold font-mono text-white tabular-nums tracking-tight">
+        <span className="text-lg sm:text-xl font-bold font-mono text-[var(--text-primary)] tabular-nums tracking-tight">
           {typeof value === 'number' ? (Number.isInteger(value) ? value : value.toFixed(2)) : value}
         </span>
-        {unit && <span className="text-[11px] font-sans font-medium text-slate-400">{unit}</span>}
+        {unit && <span className="text-[11px] font-sans font-medium text-[var(--text-muted)]">{unit}</span>}
       </div>
 
       {secondary && (
-        <span className="text-[9px] text-slate-400 font-sans mt-0.5 truncate">{secondary}</span>
+        <span className="text-[9px] text-[var(--text-muted)] font-sans mt-0.5 truncate">{secondary}</span>
       )}
 
       {confidence !== undefined && (
-        <div className="flex items-center gap-1.5 mt-1.5 pt-1 border-t border-white/[0.04]">
-          <div className="flex-1 h-1 bg-white/[0.06] rounded-full overflow-hidden">
+        <div className="flex items-center gap-1.5 mt-1.5 pt-1 border-t border-[var(--border-color)]">
+          <div className="flex-1 h-1 bg-[var(--bg-app)] rounded-full overflow-hidden">
             <div
-              className="h-full bg-blue-500/80 rounded-full transition-all duration-500"
+              className="h-full bg-[var(--accent-cyan)] rounded-full transition-all duration-500"
               style={{ width: `${confidence * 100}%` }}
             />
           </div>
-          <span className="text-[9px] font-mono text-slate-400">{(confidence * 100).toFixed(0)}%</span>
+          <span className="text-[9px] font-mono text-[var(--text-muted)]">{(confidence * 100).toFixed(0)}%</span>
         </div>
       )}
     </div>

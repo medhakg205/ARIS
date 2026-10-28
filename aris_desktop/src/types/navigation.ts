@@ -18,7 +18,8 @@ export type NavTab =
   | 'about'          // About ARIS
   // Aliases for compatibility
   | 'issues'
-  | 'optimization';
+  | 'optimization'
+  | 'monitor';
 
 export interface NavItemConfig {
   id: NavTab;

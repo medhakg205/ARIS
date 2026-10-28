@@ -6,20 +6,45 @@
 int TelemetryEncoder::encode_json(const ArisTelemetrySample* sample, char* buffer, size_t buffer_size) {
     if (!sample || !buffer || buffer_size == 0) return -1;
 
-    // Canonical JSON format:
-    // {
-    //     "protocol_version": "1.0",
-    //     "run_id": "ARIS-000001",
-    //     "board_id": "arduino_uno",
-    //     "mcu": "atmega328p",
-    //     "timestamp_ms": 123456,
-    //     "sequence": 42,
-    //     "metric": "loop_time",
-    //     "value": 4.21,
-    //     "unit": "ms",
-    //     "classification": "MEASURED",
-    //     "confidence": 1.0
-    // }
+#if defined(ARDUINO) || defined(__AVR__)
+    char val_buf[16];
+    char conf_buf[16];
+    dtostrf(sample->value, 1, 2, val_buf);
+    dtostrf(sample->confidence, 1, 2, conf_buf);
+    char* vp = val_buf; while (*vp == ' ') vp++;
+    char* cp = conf_buf; while (*cp == ' ') cp++;
+
+    size_t idx = 0;
+    auto append_s = [&](const char* s) {
+        if (!s) return;
+        while (*s && idx < buffer_size - 1) buffer[idx++] = *s++;
+    };
+    auto append_u = [&](uint32_t val) {
+        char nb[12]; int ni = 0;
+        if (val == 0) nb[ni++] = '0';
+        else {
+            while (val > 0) { nb[ni++] = '0' + (val % 10); val /= 10; }
+            for (int i = 0; i < ni / 2; i++) { char t = nb[i]; nb[i] = nb[ni - 1 - i]; nb[ni - 1 - i] = t; }
+        }
+        nb[ni] = '\0'; append_s(nb);
+    };
+
+    append_s("{\"protocol_version\":\""); append_s(sample->protocol_version ? sample->protocol_version : ARIS_PROTOCOL_VERSION);
+    append_s("\",\"run_id\":\""); append_s(sample->run_id ? sample->run_id : ARIS_DEFAULT_RUN_ID);
+    append_s("\",\"board_id\":\""); append_s(sample->board_id ? sample->board_id : "unknown");
+    append_s("\",\"mcu\":\""); append_s(sample->mcu ? sample->mcu : "unknown");
+    append_s("\",\"timestamp_ms\":"); append_u(sample->timestamp_ms);
+    append_s(",\"sequence\":"); append_u(sample->sequence);
+    append_s(",\"metric\":\""); append_s(sample->metric ? sample->metric : "unknown");
+    append_s("\",\"value\":"); append_s(vp);
+    append_s(",\"unit\":\""); append_s(sample->unit ? sample->unit : "");
+    append_s("\",\"classification\":\""); append_s(sample->classification ? sample->classification : "MEASURED");
+    append_s("\",\"confidence\":"); append_s(cp);
+    append_s("}");
+
+    buffer[idx] = '\0';
+    return (int)idx;
+#else
     return snprintf(
         buffer,
         buffer_size,
@@ -38,6 +63,7 @@ int TelemetryEncoder::encode_json(const ArisTelemetrySample* sample, char* buffe
         sample->classification ? sample->classification : "MEASURED",
         (double)sample->confidence
     );
+#endif
 }
 
 int TelemetryEncoder::encode_compact_frame(

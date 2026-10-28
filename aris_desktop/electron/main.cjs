@@ -94,7 +94,7 @@ function checkBackendHealth(timeoutMs = 1200) {
 }
 
 // Wait with retry/backoff for backend to become responsive
-async function waitForBackend(timeoutMs = 15000) {
+async function waitForBackend(timeoutMs = 20000) {
   const startTime = Date.now();
   let attempt = 0;
   while (Date.now() - startTime < timeoutMs) {
@@ -362,8 +362,33 @@ function createWindow() {
   });
 
   const indexPath = path.join(__dirname, '..', 'dist', 'index.html');
-  supervisorLog('LOAD_GUI', { indexPath });
-  mainWindow.loadFile(indexPath);
+  const devUrl = process.env.VITE_DEV_SERVER_URL || 'http://127.0.0.1:5173';
+
+  // Probe dev server, fallback gracefully to dist/index.html
+  let loaded = false;
+  const loadFallback = () => {
+    if (loaded) return;
+    loaded = true;
+    supervisorLog('LOAD_GUI_DIST', { indexPath });
+    mainWindow.loadFile(indexPath);
+  };
+
+  const req = http.get(devUrl, (res) => {
+    if (!loaded && res.statusCode && res.statusCode >= 200 && res.statusCode < 400) {
+      loaded = true;
+      supervisorLog('LOAD_GUI_DEV', { devUrl });
+      mainWindow.loadURL(devUrl);
+    } else {
+      loadFallback();
+    }
+  });
+  req.on('error', () => {
+    loadFallback();
+  });
+  req.setTimeout(800, () => {
+    req.destroy();
+    loadFallback();
+  });
 
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -405,7 +430,7 @@ app.whenReady().then(async () => {
     backendState = 'ONLINE';
   } else {
     startPythonBackend();
-    const healthy = await waitForBackend(15000);
+    const healthy = await waitForBackend(20000);
     if (healthy) {
       backendState = 'ONLINE';
       supervisorLog('INITIAL_STARTUP_ONLINE');

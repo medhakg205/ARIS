@@ -128,11 +128,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 )}
               </div>
               <p className="text-xs text-slate-400 font-sans mt-1">
-                {board.mcu.toUpperCase()} · {board.architecture.toUpperCase()} · {board.clock_hz / 1e6} MHz
+                {(board.mcu || 'Unknown MCU').toUpperCase()} · {(board.architecture || 'Unknown Arch').toUpperCase()} · {board.clock_hz ? `${board.clock_hz / 1e6} MHz` : '—'}
               </p>
               <div className="mt-3 pt-2 border-t border-white/[0.04] flex items-center justify-between text-[11px] font-mono text-slate-400">
-                <span>SRAM: {board.sram_bytes / 1024}KB</span>
-                <span>Flash: {board.flash_bytes / 1024}KB</span>
+                <span>SRAM: {board.sram_bytes ? `${board.sram_bytes / 1024}KB` : '—'}</span>
+                <span>Flash: {board.flash_bytes ? `${board.flash_bytes / 1024}KB` : '—'}</span>
               </div>
             </button>
           ))}

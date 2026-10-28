@@ -19,7 +19,6 @@ import {
   Cpu,
   BarChart2,
   ChevronDown,
-  Sparkles,
   Usb,
 } from 'lucide-react';
 import {
@@ -105,13 +104,23 @@ export const TelemetryLab: React.FC<TelemetryLabProps> = ({
   const loopSample = latestSamples['loop_time'] || latestSamples['loop_time_us'];
   const cpuSample = latestSamples['cpu_load'] || latestSamples['cpu_load_pct'];
   const sramSample = latestSamples['sram_used'] || latestSamples['sram_used_bytes'];
+  const sramFreeSample = latestSamples['sram_free'] || latestSamples['sram_free_bytes'];
+  const stackSample = latestSamples['stack_used'] || latestSamples['stack_bytes'];
+  const stackHwmSample = latestSamples['stack_high_water_mark'] || latestSamples['stack_hwm'];
   const jitterSample = latestSamples['loop_jitter'] || latestSamples['jitter_us'];
   const isrSample = latestSamples['interrupt_rate'] || latestSamples['isr_count'];
 
-  const loopTimeStr = loopSample?.value !== undefined ? (loopSample.value > 100 ? (loopSample.value / 1000).toFixed(2) : loopSample.value.toFixed(2)) : '—';
+  const loopTimeStr = loopSample?.value !== undefined
+    ? (loopSample.unit === 'us' ? (loopSample.value / 1000).toFixed(2) : loopSample.value.toFixed(2))
+    : '—';
   const cpuLoadStr = cpuSample?.value !== undefined ? cpuSample.value.toFixed(1) : '—';
   const sramStr = sramSample?.value !== undefined ? `${Math.round(sramSample.value)}` : '—';
-  const jitterStr = jitterSample?.value !== undefined ? (jitterSample.value > 100 ? (jitterSample.value / 1000).toFixed(2) : jitterSample.value.toFixed(2)) : '—';
+  const sramFreeStr = sramFreeSample?.value !== undefined ? `${Math.round(sramFreeSample.value)}` : '—';
+  const stackStr = stackSample?.value !== undefined ? `${Math.round(stackSample.value)}` : '—';
+  const stackHwmStr = stackHwmSample?.value !== undefined ? `${Math.round(stackHwmSample.value)}` : '—';
+  const jitterStr = jitterSample?.value !== undefined
+    ? (jitterSample.unit === 'us' ? (jitterSample.value / 1000).toFixed(2) : jitterSample.value.toFixed(2))
+    : '—';
   const isrStr = isrSample?.value !== undefined ? `${Math.round(isrSample.value)}` : '—';
 
   // Export CSV
@@ -142,24 +151,24 @@ export const TelemetryLab: React.FC<TelemetryLabProps> = ({
   if (!isRunning && !hasData) {
     return (
       <div className="h-full flex flex-col items-center justify-center p-6 select-none bg-[var(--bg-app)]">
-        <div className="max-w-md w-full flex flex-col items-center text-center space-y-5">
-          <div className="w-14 h-14 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)] flex items-center justify-center shadow-md text-[var(--accent-cyan)]">
-            <Activity size={28} />
+        <div className="max-w-md w-full flex flex-col items-center text-center space-y-4">
+          <div className="w-12 h-12 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-color)] flex items-center justify-center text-[var(--accent-cyan)] shadow-sm">
+            <Activity size={24} />
           </div>
 
-          <div className="space-y-1.5">
-            <h2 className="text-xl font-heading font-extrabold text-[var(--text-primary)]">
-              Telemetry
+          <div className="space-y-1">
+            <h2 className="text-lg font-heading font-bold text-[var(--text-primary)]">
+              Telemetry Standby
             </h2>
-            <p className="text-xs font-mono text-[var(--text-muted)]">
-              No telemetry available. Connect hardware or start simulation to begin capturing runtime metrics.
+            <p className="text-xs text-[var(--text-muted)] font-sans leading-relaxed">
+              No live telemetry stream detected. Connect Arduino hardware or launch simulation mode to inspect runtime performance.
             </p>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
+          <div className="flex items-center gap-2.5 pt-2">
             <button
-              onClick={() => onNavigate('settings')}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] hover:border-[var(--text-muted)] text-xs font-mono font-semibold text-[var(--text-primary)] transition-all"
+              onClick={() => onNavigate('devices')}
+              className="aris-btn-secondary flex items-center gap-2 text-xs"
             >
               <Usb size={14} className="text-[var(--accent-cyan)]" />
               <span>Connect Hardware</span>
@@ -167,9 +176,9 @@ export const TelemetryLab: React.FC<TelemetryLabProps> = ({
 
             <button
               onClick={onStartDemo}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--accent-cyan)] hover:opacity-90 text-white text-xs font-mono font-bold transition-all shadow-sm"
+              className="aris-btn-primary flex items-center gap-2 text-xs"
             >
-              <Sparkles size={14} />
+              <Play size={14} />
               <span>Start Simulation</span>
             </button>
           </div>
@@ -186,12 +195,12 @@ export const TelemetryLab: React.FC<TelemetryLabProps> = ({
       {/* 1. Header Toolbar */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-[var(--border-color)] pb-4">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             <h1 className="text-xl font-heading font-extrabold text-[var(--text-primary)]">
               Telemetry
             </h1>
             <span
-              className={`text-[9px] font-mono px-2 py-0.5 rounded font-bold border ${
+              className={`inline-flex items-center gap-1.5 text-[10px] font-mono px-2.5 py-0.5 rounded-full font-semibold border ${
                 isDemo
                   ? 'bg-[var(--accent-amber-bg)] text-[var(--accent-amber)] border-[var(--accent-amber)]/30'
                   : hardwareConnected
@@ -199,24 +208,33 @@ export const TelemetryLab: React.FC<TelemetryLabProps> = ({
                   : 'bg-[var(--bg-surface)] text-[var(--text-muted)] border-[var(--border-color)]'
               }`}
             >
-              {isDemo ? 'SOURCE: SIMULATION' : hardwareConnected ? 'SOURCE: REAL HARDWARE' : 'OFFLINE'}
+              <span className={`w-1.5 h-1.5 rounded-full ${
+                isDemo ? 'bg-[var(--accent-amber)]' : hardwareConnected ? 'bg-[var(--accent-green)]' : 'bg-[var(--text-muted)]'
+              }`} />
+              {isDemo ? 'SIMULATION' : hardwareConnected ? 'PHYSICAL HARDWARE' : 'OFFLINE'}
             </span>
+            {activeRun && (
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-[var(--bg-surface)] text-[var(--text-secondary)] border border-[var(--border-color)] font-medium">
+                {activeRun.run_id}
+              </span>
+            )}
           </div>
-          <p className="text-xs text-[var(--text-muted)] mt-0.5 font-mono">
-            {isRunning ? 'Capturing live frames over serial handshake' : 'Capture session complete'}
+          <p className="text-xs text-[var(--text-muted)] mt-1 font-sans">
+            {isRunning ? 'Capturing live telemetry frames over serial interface' : 'Capture session completed'}
+            {telemetryHistory.length > 0 && ` · ${telemetryHistory.length.toLocaleString()} frames ingested`}
           </p>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Time range */}
-          <div className="flex items-center rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] p-0.5 text-xs font-mono">
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {/* Time range segmented control */}
+          <div className="flex items-center rounded-lg bg-[var(--bg-surface)] border border-[var(--border-color)] p-0.5 text-xs font-mono">
             {(['10s', '30s', '1m', 'all'] as TimeRange[]).map((tr) => (
               <button
                 key={tr}
                 onClick={() => setTimeRange(tr)}
-                className={`px-2 py-1 rounded ${
+                className={`px-2.5 py-1 rounded-md text-xs transition-colors ${
                   timeRange === tr
-                    ? 'bg-[var(--accent-cyan-bg)] text-[var(--accent-cyan)] font-bold'
+                    ? 'bg-[var(--bg-card)] text-[var(--text-primary)] font-semibold shadow-xs'
                     : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
                 }`}
               >
@@ -229,7 +247,7 @@ export const TelemetryLab: React.FC<TelemetryLabProps> = ({
           <button
             onClick={exportCSV}
             title="Export CSV"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] hover:border-[var(--text-muted)] text-xs font-mono text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+            className="aris-btn-secondary flex items-center gap-1.5 text-xs"
           >
             <Download size={13} />
             <span>Export CSV</span>
@@ -239,7 +257,7 @@ export const TelemetryLab: React.FC<TelemetryLabProps> = ({
           {isRunning ? (
             <button
               onClick={onStopRun}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[var(--accent-red-bg)] text-[var(--accent-red)] border border-[var(--accent-red)]/30 text-xs font-mono font-bold hover:opacity-90 transition-opacity"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[var(--accent-red-bg)] text-[var(--accent-red)] border border-[var(--accent-red)]/30 text-xs font-semibold hover:opacity-90 transition-opacity"
             >
               <Square size={13} />
               <span>Stop Stream</span>
@@ -247,7 +265,7 @@ export const TelemetryLab: React.FC<TelemetryLabProps> = ({
           ) : (
             <button
               onClick={hardwareConnected ? onStartRun : onStartDemo}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[var(--accent-cyan)] hover:opacity-90 text-white text-xs font-mono font-bold shadow-sm transition-opacity"
+              className="aris-btn-primary flex items-center gap-1.5 text-xs"
             >
               <Play size={13} />
               <span>{hardwareConnected ? 'Start Capture' : 'Start Simulation'}</span>
@@ -256,72 +274,92 @@ export const TelemetryLab: React.FC<TelemetryLabProps> = ({
         </div>
       </div>
 
-      {/* 2. Key Metrics Row (Loop Time, CPU, SRAM, Jitter, Interrupts) */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-        <div className="aris-card p-3 space-y-1">
-          <div className="text-[10px] font-mono text-[var(--text-muted)] flex items-center justify-between">
-            <span>LOOP TIME</span>
-            <Clock size={12} />
+      {/* 2. Key Metrics Row (Loop Time, CPU, SRAM, Stack, Jitter, Interrupts) */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="aris-card p-3.5 space-y-1">
+          <div className="text-xs font-sans font-medium text-[var(--text-secondary)] flex items-center justify-between">
+            <span>Loop Time</span>
+            <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full bg-[var(--accent-green-bg)] text-[var(--accent-green)] border border-[var(--accent-green)]/30">MEASURED</span>
           </div>
-          <div className="text-xl font-heading font-extrabold text-[var(--accent-green)]">
-            {loopTimeStr} {loopTimeStr !== '—' && <span className="text-xs font-mono">ms</span>}
+          <div className="text-2xl font-heading font-extrabold text-[var(--text-primary)]">
+            {loopTimeStr} {loopTimeStr !== '—' && <span className="text-xs font-mono font-normal text-[var(--text-muted)]">ms</span>}
           </div>
-          <div className="text-[10px] font-mono text-[var(--text-muted)]">Iteration period</div>
+          <div className="text-[11px] font-sans text-[var(--text-muted)]">Iteration period</div>
         </div>
 
-        <div className="aris-card p-3 space-y-1">
-          <div className="text-[10px] font-mono text-[var(--text-muted)] flex items-center justify-between">
-            <span>CPU LOAD</span>
-            <Cpu size={12} />
+        <div className="aris-card p-3.5 space-y-1">
+          <div className="text-xs font-sans font-medium text-[var(--text-secondary)] flex items-center justify-between">
+            <span>CPU Load</span>
+            <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full bg-[var(--accent-cyan-bg)] text-[var(--accent-cyan)] border border-[var(--accent-cyan)]/30">ESTIMATED</span>
           </div>
-          <div className="text-xl font-heading font-extrabold text-[var(--accent-cyan)]">
-            {cpuLoadStr} {cpuLoadStr !== '—' && <span className="text-xs font-mono">%</span>}
+          <div className="text-2xl font-heading font-extrabold text-[var(--text-primary)]">
+            {cpuLoadStr} {cpuLoadStr !== '—' && <span className="text-xs font-mono font-normal text-[var(--text-muted)]">%</span>}
           </div>
-          <div className="text-[10px] font-mono text-[var(--text-muted)]">Active duty cycle</div>
+          <div className="text-[11px] font-sans text-[var(--text-muted)]">Active duty cycle</div>
         </div>
 
-        <div className="aris-card p-3 space-y-1">
-          <div className="text-[10px] font-mono text-[var(--text-muted)] flex items-center justify-between">
-            <span>SRAM ALLOCATION</span>
-            <Layers size={12} />
+        <div className="aris-card p-3.5 space-y-1">
+          <div className="text-xs font-sans font-medium text-[var(--text-secondary)] flex items-center justify-between">
+            <span>SRAM Alloc</span>
+            <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full bg-[var(--accent-purple-bg)] text-[var(--accent-purple)] border border-[var(--accent-purple)]/30">DERIVED</span>
           </div>
-          <div className="text-xl font-heading font-extrabold text-[var(--accent-purple)]">
-            {sramStr} {sramStr !== '—' && <span className="text-xs font-mono">B</span>}
+          <div className="text-2xl font-heading font-extrabold text-[var(--text-primary)]">
+            {sramStr} {sramStr !== '—' && <span className="text-xs font-mono font-normal text-[var(--text-muted)]">B</span>}
           </div>
-          <div className="text-[10px] font-mono text-[var(--text-muted)]">Static memory</div>
+          <div className="text-[11px] font-sans text-[var(--text-muted)]">
+            {sramFreeStr !== '—' ? `${sramFreeStr} B free` : 'Static memory'}
+          </div>
         </div>
 
-        <div className="aris-card p-3 space-y-1">
-          <div className="text-[10px] font-mono text-[var(--text-muted)] flex items-center justify-between">
-            <span>JITTER</span>
-            <Activity size={12} />
+        <div className="aris-card p-3.5 space-y-1">
+          <div className="text-xs font-sans font-medium text-[var(--text-secondary)] flex items-center justify-between">
+            <span>Stack Usage</span>
+            <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full bg-[var(--accent-cyan-bg)] text-[var(--accent-cyan)] border border-[var(--accent-cyan)]/30">DERIVED</span>
           </div>
-          <div className="text-xl font-heading font-extrabold text-[var(--text-primary)]">
-            {jitterStr} {jitterStr !== '—' && <span className="text-xs font-mono">ms</span>}
+          <div className="text-2xl font-heading font-extrabold text-[var(--text-primary)]">
+            {stackStr} {stackStr !== '—' && <span className="text-xs font-mono font-normal text-[var(--text-muted)]">B</span>}
           </div>
-          <div className="text-[10px] font-mono text-[var(--text-muted)]">Cycle variance</div>
+          <div className="text-[11px] font-sans text-[var(--text-muted)]">
+            {stackHwmStr !== '—' ? `HWM: ${stackHwmStr} B` : 'Current depth'}
+          </div>
         </div>
 
-        <div className="aris-card p-3 space-y-1">
-          <div className="text-[10px] font-mono text-[var(--text-muted)] flex items-center justify-between">
-            <span>INTERRUPTS</span>
-            <Zap size={12} />
+        <div className="aris-card p-3.5 space-y-1">
+          <div className="text-xs font-sans font-medium text-[var(--text-secondary)] flex items-center justify-between">
+            <span>Jitter</span>
+            <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full bg-[var(--bg-surface)] text-[var(--text-secondary)] border border-[var(--border-color)]">DERIVED</span>
           </div>
-          <div className="text-xl font-heading font-extrabold text-[var(--accent-amber)]">
-            {isrStr} {isrStr !== '—' && <span className="text-xs font-mono">Hz</span>}
+          <div className="text-2xl font-heading font-extrabold text-[var(--text-primary)]">
+            {jitterStr} {jitterStr !== '—' && <span className="text-xs font-mono font-normal text-[var(--text-muted)]">ms</span>}
           </div>
-          <div className="text-[10px] font-mono text-[var(--text-muted)]">ISR triggers</div>
+          <div className="text-[11px] font-sans text-[var(--text-muted)]">Cycle variance</div>
+        </div>
+
+        <div className="aris-card p-3.5 space-y-1">
+          <div className="text-xs font-sans font-medium text-[var(--text-secondary)] flex items-center justify-between">
+            <span>Interrupts</span>
+            <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full bg-[var(--accent-amber-bg)] text-[var(--accent-amber)] border border-[var(--accent-amber)]/30">DERIVED</span>
+          </div>
+          <div className="text-2xl font-heading font-extrabold text-[var(--text-primary)]">
+            {isrStr} {isrStr !== '—' && <span className="text-xs font-mono font-normal text-[var(--text-muted)]">Hz</span>}
+          </div>
+          <div className="text-[11px] font-sans text-[var(--text-muted)]">ISR frequency</div>
         </div>
       </div>
 
       {/* 3. Primary Charts: Loop Time Latency & CPU Load */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Loop Time Chart */}
-        <div className="aris-card p-4 space-y-2">
-          <div className="flex items-center justify-between border-b border-[var(--border-color)] pb-2">
-            <span className="text-xs font-mono font-semibold text-[var(--text-secondary)]">
-              Loop Execution Latency (ms)
-            </span>
+        <div className="aris-card p-4 space-y-3">
+          <div className="flex items-center justify-between border-b border-[var(--border-color)] pb-2.5">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-sans font-semibold text-[var(--text-primary)]">
+                Loop Execution Latency
+              </span>
+              <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-[var(--accent-green-bg)] text-[var(--accent-green)]">
+                MEASURED
+              </span>
+            </div>
             <span className="text-xs font-mono font-bold text-[var(--accent-green)]">
               {loopTimeStr} ms
             </span>
@@ -331,14 +369,15 @@ export const TelemetryLab: React.FC<TelemetryLabProps> = ({
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.08)" />
-                <XAxis dataKey="elapsed_sec" stroke="#64748b" tick={{ fontSize: 10 }} unit="s" />
-                <YAxis stroke="#64748b" tick={{ fontSize: 10 }} domain={['auto', 'auto']} unit="ms" />
+                <XAxis dataKey="elapsed_sec" stroke="var(--text-muted)" tick={{ fontSize: 10 }} unit="s" />
+                <YAxis stroke="var(--text-muted)" tick={{ fontSize: 10 }} domain={['auto', 'auto']} unit="ms" />
                 <Tooltip
                   contentStyle={{
                     backgroundColor: 'var(--bg-card)',
                     borderColor: 'var(--border-color)',
                     fontSize: '11px',
                     borderRadius: '8px',
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
                   }}
                 />
                 <Line
@@ -355,11 +394,16 @@ export const TelemetryLab: React.FC<TelemetryLabProps> = ({
         </div>
 
         {/* CPU Load Chart */}
-        <div className="aris-card p-4 space-y-2">
-          <div className="flex items-center justify-between border-b border-[var(--border-color)] pb-2">
-            <span className="text-xs font-mono font-semibold text-[var(--text-secondary)]">
-              CPU Duty Cycle (%)
-            </span>
+        <div className="aris-card p-4 space-y-3">
+          <div className="flex items-center justify-between border-b border-[var(--border-color)] pb-2.5">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-sans font-semibold text-[var(--text-primary)]">
+                CPU Duty Cycle
+              </span>
+              <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-[var(--accent-cyan-bg)] text-[var(--accent-cyan)]">
+                ESTIMATED
+              </span>
+            </div>
             <span className="text-xs font-mono font-bold text-[var(--accent-cyan)]">
               {cpuLoadStr}%
             </span>
@@ -369,14 +413,15 @@ export const TelemetryLab: React.FC<TelemetryLabProps> = ({
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.08)" />
-                <XAxis dataKey="elapsed_sec" stroke="#64748b" tick={{ fontSize: 10 }} unit="s" />
-                <YAxis stroke="#64748b" tick={{ fontSize: 10 }} domain={[0, 100]} unit="%" />
+                <XAxis dataKey="elapsed_sec" stroke="var(--text-muted)" tick={{ fontSize: 10 }} unit="s" />
+                <YAxis stroke="var(--text-muted)" tick={{ fontSize: 10 }} domain={[0, 100]} unit="%" />
                 <Tooltip
                   contentStyle={{
                     backgroundColor: 'var(--bg-card)',
                     borderColor: 'var(--border-color)',
                     fontSize: '11px',
                     borderRadius: '8px',
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
                   }}
                 />
                 <Line
@@ -397,25 +442,43 @@ export const TelemetryLab: React.FC<TelemetryLabProps> = ({
       <div className="space-y-2">
         <button
           onClick={() => setShowAdvanced(!showAdvanced)}
-          className="text-xs font-mono text-[var(--text-muted)] hover:text-[var(--text-primary)] flex items-center gap-1.5 transition-colors"
+          className="text-xs font-sans font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] flex items-center gap-1.5 transition-colors"
         >
-          <span>{showAdvanced ? 'Hide Advanced Telemetry Channels' : 'Show Advanced Telemetry (SRAM, Interrupts)'}</span>
-          <ChevronDown size={13} className={showAdvanced ? 'rotate-180' : ''} />
+          <span>{showAdvanced ? 'Hide Advanced Telemetry Channels' : 'Show Advanced Telemetry Channels (SRAM, Interrupts)'}</span>
+          <ChevronDown size={13} className={showAdvanced ? 'rotate-180 transition-transform' : 'transition-transform'} />
         </button>
 
         {showAdvanced && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pt-2">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pt-1">
             {/* SRAM Chart */}
-            <div className="aris-card p-4 space-y-2">
-              <span className="text-xs font-mono font-semibold text-[var(--text-secondary)]">
-                SRAM Allocation (Bytes)
-              </span>
+            <div className="aris-card p-4 space-y-3">
+              <div className="flex items-center justify-between border-b border-[var(--border-color)] pb-2.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-sans font-semibold text-[var(--text-primary)]">
+                    SRAM Allocation
+                  </span>
+                  <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-[var(--accent-purple-bg)] text-[var(--accent-purple)]">
+                    DERIVED
+                  </span>
+                </div>
+                <span className="text-xs font-mono font-bold text-[var(--accent-purple)]">
+                  {sramStr} B
+                </span>
+              </div>
               <div className="h-40 w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={chartData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.08)" />
-                    <XAxis dataKey="elapsed_sec" stroke="#64748b" tick={{ fontSize: 10 }} unit="s" />
-                    <YAxis stroke="#64748b" tick={{ fontSize: 10 }} unit="B" />
+                    <XAxis dataKey="elapsed_sec" stroke="var(--text-muted)" tick={{ fontSize: 10 }} unit="s" />
+                    <YAxis stroke="var(--text-muted)" tick={{ fontSize: 10 }} unit="B" />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: 'var(--bg-card)',
+                        borderColor: 'var(--border-color)',
+                        fontSize: '11px',
+                        borderRadius: '8px',
+                      }}
+                    />
                     <Line type="monotone" dataKey="sram_used" stroke="#a855f7" strokeWidth={2} dot={false} isAnimationActive={false} />
                   </LineChart>
                 </ResponsiveContainer>
@@ -423,16 +486,34 @@ export const TelemetryLab: React.FC<TelemetryLabProps> = ({
             </div>
 
             {/* Interrupts Chart */}
-            <div className="aris-card p-4 space-y-2">
-              <span className="text-xs font-mono font-semibold text-[var(--text-secondary)]">
-                Interrupt Frequency (Hz)
-              </span>
+            <div className="aris-card p-4 space-y-3">
+              <div className="flex items-center justify-between border-b border-[var(--border-color)] pb-2.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-sans font-semibold text-[var(--text-primary)]">
+                    Interrupt Frequency
+                  </span>
+                  <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-[var(--accent-amber-bg)] text-[var(--accent-amber)]">
+                    DERIVED
+                  </span>
+                </div>
+                <span className="text-xs font-mono font-bold text-[var(--accent-amber)]">
+                  {isrStr} Hz
+                </span>
+              </div>
               <div className="h-40 w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={chartData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.08)" />
-                    <XAxis dataKey="elapsed_sec" stroke="#64748b" tick={{ fontSize: 10 }} unit="s" />
-                    <YAxis stroke="#64748b" tick={{ fontSize: 10 }} unit="Hz" />
+                    <XAxis dataKey="elapsed_sec" stroke="var(--text-muted)" tick={{ fontSize: 10 }} unit="s" />
+                    <YAxis stroke="var(--text-muted)" tick={{ fontSize: 10 }} unit="Hz" />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: 'var(--bg-card)',
+                        borderColor: 'var(--border-color)',
+                        fontSize: '11px',
+                        borderRadius: '8px',
+                      }}
+                    />
                     <Line type="monotone" dataKey="interrupt_rate" stroke="#f59e0b" strokeWidth={2} dot={false} isAnimationActive={false} />
                   </LineChart>
                 </ResponsiveContainer>
@@ -446,10 +527,10 @@ export const TelemetryLab: React.FC<TelemetryLabProps> = ({
       <div className="aris-card p-5 space-y-3">
         <div className="flex items-center justify-between border-b border-[var(--border-color)] pb-3">
           <span className="font-heading font-bold text-xs uppercase tracking-wider text-[var(--text-primary)]">
-            Recent Telemetry Frames ({telemetryHistory.length})
+            Recent Telemetry Frames ({telemetryHistory.length.toLocaleString()})
           </span>
-          <span className="text-[10px] font-mono text-[var(--text-muted)]">
-            Last 10 samples
+          <span className="text-xs font-sans text-[var(--text-muted)]">
+            Showing last 10 samples
           </span>
         </div>
 
@@ -457,29 +538,30 @@ export const TelemetryLab: React.FC<TelemetryLabProps> = ({
           <table className="w-full text-left text-xs font-mono">
             <thead className="bg-[var(--bg-surface)] text-[var(--text-muted)] border-b border-[var(--border-color)]">
               <tr>
-                <th className="p-2.5">Timestamp</th>
-                <th className="p-2.5">Metric</th>
-                <th className="p-2.5 text-right">Value</th>
-                <th className="p-2.5">Unit</th>
-                <th className="p-2.5 text-center">Source</th>
+                <th className="p-2.5 font-medium">Timestamp</th>
+                <th className="p-2.5 font-medium">Metric</th>
+                <th className="p-2.5 text-right font-medium">Value</th>
+                <th className="p-2.5 font-medium">Unit</th>
+                <th className="p-2.5 text-center font-medium">Provenance</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--border-color)]">
               {telemetryHistory.slice(-10).reverse().map((s, idx) => (
-                <tr key={idx} className="hover:bg-[var(--bg-surface)]">
+                <tr key={idx} className="hover:bg-[var(--bg-surface)] transition-colors">
                   <td className="p-2.5 text-[var(--text-muted)]">{s.timestamp_ms} ms</td>
-                  <td className="p-2.5 text-[var(--text-primary)] font-bold">{s.metric}</td>
+                  <td className="p-2.5 text-[var(--text-primary)] font-semibold">{s.metric}</td>
                   <td className="p-2.5 text-right font-bold text-[var(--accent-cyan)]">{s.value.toFixed(2)}</td>
                   <td className="p-2.5 text-[var(--text-muted)]">{s.unit}</td>
                   <td className="p-2.5 text-center">
                     <span
-                      className={`text-[9px] font-mono px-2 py-0.5 rounded font-bold ${
+                      className={`inline-flex items-center gap-1 text-[9px] font-mono px-2 py-0.5 rounded-full font-bold ${
                         s.is_demo
                           ? 'bg-[var(--accent-amber-bg)] text-[var(--accent-amber)]'
                           : 'bg-[var(--accent-green-bg)] text-[var(--accent-green)]'
                       }`}
                     >
-                      {s.is_demo ? 'Simulation' : 'Hardware'}
+                      <span className={`w-1 h-1 rounded-full ${s.is_demo ? 'bg-[var(--accent-amber)]' : 'bg-[var(--accent-green)]'}`} />
+                      {s.is_demo ? 'Simulation' : 'Physical'}
                     </span>
                   </td>
                 </tr>

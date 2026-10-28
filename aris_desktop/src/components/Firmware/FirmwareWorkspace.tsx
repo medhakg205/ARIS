@@ -13,6 +13,7 @@ import {
   Cpu,
   CheckCircle2,
   AlertCircle,
+  AlertTriangle,
   Clock,
   Layers,
   Search,
@@ -22,9 +23,12 @@ import {
   Terminal,
   FileText,
   ChevronDown,
+  Activity,
+  GitBranch,
 } from 'lucide-react';
 import { BoardProfile, FirmwareRecord, IDESketchInfo } from '../../types';
-import { apiCompileFirmware, apiInstrumentAndBuild, InstrumentAndBuildResponse } from '../../services/api';
+import { apiCompileFirmware, apiFlashFirmware, apiInstrumentAndBuild, apiReleaseSerial, apiHealth, apiTriggerHandshake, InstrumentAndBuildResponse } from '../../services/api';
+import { pauseHardwareAutoDetect, resumeHardwareAutoDetect } from '../../hooks/useAris';
 
 interface FirmwareWorkspaceProps {
   firmwareList: FirmwareRecord[];
@@ -39,6 +43,8 @@ interface FirmwareWorkspaceProps {
   onNavigate?: (tab: string) => void;
   connectedPort?: string;
   hardwareConnected?: boolean;
+  onRunStarted?: (run: any) => void;
+  onFindingsUpdated?: (findings: any[]) => void;
 }
 
 export const FirmwareWorkspace: React.FC<FirmwareWorkspaceProps> = ({
@@ -53,6 +59,8 @@ export const FirmwareWorkspace: React.FC<FirmwareWorkspaceProps> = ({
   onNavigate,
   connectedPort,
   hardwareConnected = false,
+  onRunStarted,
+  onFindingsUpdated,
 }) => {
   const [selectedFileTab, setSelectedFileTab] = useState<string>('main.ino');
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -106,26 +114,180 @@ export const FirmwareWorkspace: React.FC<FirmwareWorkspaceProps> = ({
   };
 
   const [isInstrumenting, setIsInstrumenting] = useState(false);
+  const [instrumentStage, setInstrumentStage] = useState<string | null>(null);
   const [instrumentationResult, setInstrumentationResult] = useState<InstrumentAndBuildResponse | null>(null);
   const [instrumentationError, setInstrumentationError] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<string | null>(null);
+  const [errorDetails, setErrorDetails] = useState<any>(null);
   const [showDiff, setShowDiff] = useState(false);
+  const [instrumentationProfile, setInstrumentationProfile] = useState<'BALANCED' | 'LEAN'>('BALANCED');
+  const [uploadFailure, setUploadFailure] = useState<any>(null);
+  const [showUploadDetails, setShowUploadDetails] = useState(false);
 
-  const handleInstrumentAndRun = async () => {
-    if (!currentSourceCode) return;
+  const handleRetryHandshake = async () => {
+    if (isInstrumenting) return;
+    const targetPort = connectedPort || (hardwareConnected ? 'COM4' : undefined);
+    const activeRunId = instrumentationResult?.run_id;
+    setIsInstrumenting(true);
+    setInstrumentStage('Probing target for runtime handshake ($ARIS_HELLO#)...');
+    try {
+      const res: any = await apiTriggerHandshake(4.0, targetPort, activeRunId);
+      if (res && res.handshake_success) {
+        setInstrumentStage('Runtime handshake confirmed — telemetry active');
+        setUploadFailure(null);
+        if (instrumentationResult?.run && onRunStarted) {
+          onRunStarted(instrumentationResult.run);
+        }
+        setTimeout(() => setInstrumentStage(null), 3000);
+      } else {
+        setInstrumentStage(null);
+        setUploadFailure((prev: any) => ({
+          ...prev,
+          error_summary: 'Target responded to serial connection, but ARIS runtime handshake is not yet confirmed. Retrying probe...'
+        }));
+      }
+    } catch (e: any) {
+      setInstrumentStage(null);
+    } finally {
+      setIsInstrumenting(false);
+    }
+  };
+
+  const handleRetryUpload = async () => {
+    const binaryPath = instrumentationResult?.build_result?.binary_path;
+    const targetPort = connectedPort || (hardwareConnected ? 'COM4' : undefined);
+    if (isInstrumenting) return;
+    if (!targetPort) {
+      setUploadFailure({
+        title: 'Upload aborted — No hardware port detected',
+        error_summary: 'No serial or COM port was detected on the host. Connect your Arduino board via USB to retry upload.',
+        failure_category: 'DEVICE_DISCONNECTED',
+        guidance: [
+          'Connect your Arduino board to a USB port.',
+          'Verify the USB cable supports data transfer and not just power.',
+          'Check Windows Device Manager to confirm the COM port assignment.'
+        ],
+        command: 'arduino-cli upload',
+        exit_code: 1,
+        raw_output: 'No target serial port available.',
+        firmware_uploaded: false
+      });
+      return;
+    }
+    if (!binaryPath) {
+      await handleInstrumentAndRun();
+      return;
+    }
+
+    setIsInstrumenting(true);
+    setUploadFailure(null);
+    setInstrumentStage(`Retrying upload to ${targetPort}...`);
+
+    try {
+      pauseHardwareAutoDetect(60000);
+      const res = await apiFlashFirmware(
+        selectedBoard?.board_id || 'arduino_uno',
+        targetPort,
+        undefined,
+        binaryPath
+      );
+      if (res.status === 'FLASH_SUCCESS') {
+        setInstrumentStage('Upload confirmed — telemetry live');
+        setUploadFailure(null);
+        setTimeout(() => setInstrumentStage(null), 4000);
+      }
+    } catch (e: any) {
+      setUploadFailure(e.details || {
+        title: `Upload failed — ${selectedBoard?.display_name || 'Arduino Uno'} on ${targetPort}`,
+        error_summary: e.message,
+        failure_category: 'PROGRAMMER_ERROR',
+        command: `arduino-cli upload -p ${targetPort}`,
+        raw_output: e.message,
+        firmware_uploaded: false
+      });
+      setInstrumentStage(null);
+    } finally {
+      resumeHardwareAutoDetect();
+      setIsInstrumenting(false);
+    }
+  };
+
+  const handleInstrumentAndRun = async (overrideProfile?: 'BALANCED' | 'LEAN') => {
+    if (!currentSourceCode || isInstrumenting) return;
+    const profileToUse = overrideProfile || instrumentationProfile;
+    if (overrideProfile) {
+      setInstrumentationProfile(overrideProfile);
+    }
     setIsInstrumenting(true);
     setInstrumentationError(null);
+    setErrorCode(null);
+    setErrorDetails(null);
+    setInstrumentationResult(null);
+    setUploadFailure(null);
+
+    const targetPort = connectedPort || (hardwareConnected ? 'COM4' : undefined);
+
     try {
+      pauseHardwareAutoDetect(90000);
+
+      if (targetPort && targetPort !== 'SIMULATED') {
+        setInstrumentStage(`Preparing ${targetPort} for physical deployment...`);
+        try {
+          await apiReleaseSerial(targetPort, 500);
+        } catch {
+          // Fallback if already released
+        }
+      }
+
+      setInstrumentStage(`Compiling & deploying ${profileToUse} instrumented firmware to ${targetPort || 'target'}...`);
       const res = await apiInstrumentAndBuild(
         currentSourceCode,
         activeIDESketch?.path,
         selectedBoard?.board_id || 'arduino_uno',
-        connectedPort,
-        false
+        targetPort,
+        true,
+        profileToUse
       );
+
       setInstrumentationResult(res);
+
+      if (res.upload_result?.status === 'FLASH_FAILED') {
+        setUploadFailure(res.upload_result);
+        setInstrumentStage(null);
+      } else {
+        setUploadFailure(null);
+        if (res.static_analysis?.findings && onFindingsUpdated) {
+          onFindingsUpdated(res.static_analysis.findings);
+        }
+        if (res.run && onRunStarted) {
+          onRunStarted(res.run);
+        }
+        setInstrumentStage('Handshake confirmed — telemetry live');
+        setTimeout(() => {
+          setInstrumentStage(null);
+        }, 4000);
+      }
     } catch (e: any) {
-      setInstrumentationError(e.message || 'Transparent instrumentation failed');
+      if (e.error_code === 'ARIS_FLASH_FAILED' || e.details?.failure_category) {
+        setUploadFailure({
+          title: e.details?.title || `Upload failed — ${selectedBoard?.display_name || 'Arduino Uno'} on ${targetPort || 'COM4'}`,
+          error_summary: e.details?.error_summary || e.message,
+          failure_category: e.details?.failure_category || 'PROGRAMMER_ERROR',
+          guidance: e.details?.guidance,
+          command: e.details?.command,
+          exit_code: e.details?.exit_code,
+          raw_output: e.details?.raw_output || e.message,
+          firmware_uploaded: e.details?.firmware_uploaded ?? false
+        });
+        setInstrumentationError(null);
+      } else {
+        setInstrumentationError(e.message || 'Transparent instrumentation failed');
+        setErrorCode(e.error_code || null);
+        setErrorDetails(e.details || null);
+      }
+      setInstrumentStage(null);
     } finally {
+      resumeHardwareAutoDetect();
       setIsInstrumenting(false);
     }
   };
@@ -153,10 +315,36 @@ export const FirmwareWorkspace: React.FC<FirmwareWorkspaceProps> = ({
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
+          {/* Profile Switcher (Tesla/Google Home minimal pill) */}
+          <div className="flex items-center rounded-full bg-[var(--bg-surface)] border border-[var(--border-color)] p-0.5 text-xs font-sans">
+            <button
+              onClick={() => setInstrumentationProfile('BALANCED')}
+              className={`px-3 py-1 rounded-full font-semibold transition-all ${
+                instrumentationProfile === 'BALANCED'
+                  ? 'bg-[var(--accent-cyan)] text-white shadow-xs'
+                  : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
+              }`}
+              title="BALANCED Profile: Loop time, CPU load, SRAM, jitter, and interrupts"
+            >
+              Balanced
+            </button>
+            <button
+              onClick={() => setInstrumentationProfile('LEAN')}
+              className={`px-3 py-1 rounded-full font-semibold transition-all ${
+                instrumentationProfile === 'LEAN'
+                  ? 'bg-[var(--accent-amber)] text-black shadow-xs font-bold'
+                  : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
+              }`}
+              title="LEAN Profile: Minimal footprint; omits peripheral probes to conserve Flash & SRAM"
+            >
+              Lean (AVR)
+            </button>
+          </div>
+
           <button
             onClick={handleRefresh}
             disabled={isRefreshing}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] hover:border-[var(--text-muted)] text-xs font-mono text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all shadow-sm"
+            className="aris-btn-secondary"
           >
             <RotateCw size={13} className={isRefreshing ? 'animate-spin' : ''} />
             <span>Sync with IDE</span>
@@ -164,29 +352,44 @@ export const FirmwareWorkspace: React.FC<FirmwareWorkspaceProps> = ({
 
           {currentSourceCode && (
             <button
-              onClick={handleInstrumentAndRun}
+              onClick={() => handleInstrumentAndRun()}
               disabled={isInstrumenting}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[var(--accent-green)] hover:opacity-90 text-black text-xs font-mono font-bold shadow-sm transition-all"
+              className={`aris-btn-primary ${
+                isInstrumenting ? 'opacity-70 cursor-not-allowed' : ''
+              }`}
             >
               <Play size={13} className={isInstrumenting ? 'animate-spin' : ''} />
-              <span>{isInstrumenting ? 'Instrumenting & Building...' : 'Instrument & Run'}</span>
+              <span>{isInstrumenting ? (instrumentStage || 'Deploying...') : 'Deploy & Run'}</span>
             </button>
           )}
 
           {currentSourceCode && (
             <button
               onClick={() => onNavigate?.('analysis')}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[var(--accent-cyan)] hover:opacity-90 text-white text-xs font-mono font-bold shadow-sm transition-all"
+              className="aris-btn-secondary"
             >
               <Search size={13} />
-              <span>Analyze Firmware</span>
+              <span>Analyze Code</span>
             </button>
           )}
         </div>
       </div>
 
+      {/* Deployment Progression Banner */}
+      {(isInstrumenting || instrumentStage) && (
+        <div className="p-3.5 rounded-xl bg-[var(--accent-cyan-bg)] border border-[var(--accent-cyan)]/30 flex items-center justify-between gap-3 text-xs font-sans text-[var(--accent-cyan)]">
+          <div className="flex items-center gap-2.5">
+            <RotateCw size={14} className={isInstrumenting ? 'animate-spin text-[var(--accent-cyan)]' : 'text-[var(--accent-green)]'} />
+            <span className="font-semibold">{instrumentStage}</span>
+          </div>
+          <span className="text-[10px] font-mono text-[var(--text-muted)] uppercase tracking-wider font-bold">
+            {isInstrumenting ? 'In Progress' : 'Confirmed'}
+          </span>
+        </div>
+      )}
+
       {/* 2. Educational / Engineering Fidelity Notice */}
-      <div className="p-3.5 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)] flex items-start gap-3 text-xs font-mono text-[var(--text-muted)] leading-relaxed">
+      <div className="p-4 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)] flex items-start gap-3 text-xs font-sans text-[var(--text-muted)] leading-relaxed shadow-xs">
         <Info size={16} className="text-[var(--accent-cyan)] shrink-0 mt-0.5" />
         <div>
           <span className="font-bold text-[var(--text-primary)]">Local Project Source Integration: </span>
@@ -194,13 +397,294 @@ export const FirmwareWorkspace: React.FC<FirmwareWorkspaceProps> = ({
         </div>
       </div>
 
+      {/* 2a. Active Firmware Lineage & Version Card */}
+      {activeFirmware && (
+        <div className="p-3.5 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs font-sans shadow-xs">
+          <div className="flex items-center gap-2.5">
+            <div className="p-1.5 rounded-lg bg-[var(--accent-cyan-bg)] text-[var(--accent-cyan)]">
+              <GitBranch size={15} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-[var(--text-primary)]">Firmware Lineage:</span>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${
+                  activeFirmware.status === 'ACTIVE'
+                    ? 'bg-[var(--accent-green-bg)] text-[var(--accent-green)] border border-[var(--accent-green)]/30'
+                    : 'bg-[var(--bg-surface)] text-[var(--text-muted)] border border-[var(--border-color)]'
+                }`}>
+                  {activeFirmware.status || 'ACTIVE'}
+                </span>
+                {activeFirmware.applied && (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[var(--accent-cyan-bg)] text-[var(--accent-cyan)] border border-[var(--accent-cyan)]/30">
+                    DISK APPLIED
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] font-mono text-[var(--text-muted)] mt-0.5">
+                {activeFirmware.parent_firmware_id ? `Parent: ${activeFirmware.parent_firmware_id}` : 'Root / Baseline Version'}
+                {activeFirmware.candidate_id ? ` · Candidate: ${activeFirmware.candidate_id}` : ''}
+                {activeFirmware.source_hash ? ` · SHA-256: ${activeFirmware.source_hash.substring(0, 10)}...` : ''}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Dedicated Upload Failure Card */}
+      {uploadFailure && (
+        <div className="p-4 rounded-xl bg-[var(--bg-card)] border border-[var(--accent-amber)]/40 space-y-3 text-xs font-sans text-[var(--text-primary)] shadow-sm">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <AlertTriangle size={18} className="text-[var(--accent-amber)] shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-bold text-[var(--accent-amber)] text-sm">
+                    {uploadFailure.title || `Upload failed — ${selectedBoard?.display_name || 'Arduino Uno'} on ${connectedPort || 'COM4'}`}
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[var(--accent-amber-bg)] text-[var(--accent-amber)] border border-[var(--accent-amber)]/30">
+                    {uploadFailure.failure_category ? uploadFailure.failure_category.replace(/_/g, ' ') : 'PROGRAMMER ERROR'}
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[var(--accent-green-bg)] text-[var(--accent-green)] border border-[var(--accent-green)]/30">
+                    BUILD SUCCEEDED
+                  </span>
+                  {uploadFailure.firmware_uploaded && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[var(--accent-green-bg)] text-[var(--accent-green)] border border-[var(--accent-green)]/30">
+                      FLASH UPLOADED
+                    </span>
+                  )}
+                  {uploadFailure.failure_category === 'HANDSHAKE_TIMEOUT' && (
+                    <>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[var(--accent-amber-bg)] text-[var(--accent-amber)] border border-[var(--accent-amber)]/30">
+                        HANDSHAKE PENDING
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[var(--bg-surface)] text-[var(--text-muted)] border border-[var(--border-color)]">
+                        TELEMETRY INACTIVE
+                      </span>
+                    </>
+                  )}
+                </div>
+                <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+                  {uploadFailure.error_summary || uploadFailure.message}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              {uploadFailure.failure_category === 'HANDSHAKE_TIMEOUT' && (
+                <button
+                  onClick={() => handleRetryHandshake()}
+                  disabled={isInstrumenting}
+                  className="px-3 py-1.5 rounded-lg border border-[var(--accent-cyan)]/40 bg-[var(--accent-cyan-bg)] text-[var(--accent-cyan)] font-mono text-xs font-bold hover:bg-[var(--accent-cyan)]/20 transition-all flex items-center gap-1.5"
+                >
+                  <Activity size={12} className={isInstrumenting ? 'animate-spin' : ''} />
+                  <span>Retry Handshake</span>
+                </button>
+              )}
+              <button
+                onClick={() => handleRetryUpload()}
+                disabled={isInstrumenting}
+                className="aris-btn-primary shrink-0 text-xs py-1.5 px-3 flex items-center gap-1.5"
+              >
+                <RotateCw size={12} className={isInstrumenting ? 'animate-spin' : ''} />
+                <span>Retry Upload</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Actionable guidance checklist */}
+          {uploadFailure.guidance && uploadFailure.guidance.length > 0 && (
+            <div className="pt-2 border-t border-[var(--border-color)]">
+              <div className="text-[11px] font-bold text-[var(--text-primary)] mb-1 flex items-center gap-1.5">
+                <span>Actionable Troubleshooting Steps:</span>
+              </div>
+              <ul className="space-y-1 text-[11px] text-[var(--text-secondary)]">
+                {uploadFailure.guidance.map((step: string, idx: number) => (
+                  <li key={idx} className="flex items-start gap-2">
+                    <span className="text-[var(--accent-amber)] font-bold shrink-0">{idx + 1}.</span>
+                    <span>{step}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Expandable Technical Details Drawer */}
+          <div className="pt-2 border-t border-[var(--border-color)]">
+            <button
+              onClick={() => setShowUploadDetails(!showUploadDetails)}
+              className="flex items-center gap-1.5 text-[11px] font-mono text-[var(--accent-cyan)] hover:text-white transition-colors"
+            >
+              <Terminal size={12} />
+              <span>{showUploadDetails ? 'Hide Programmer Details & Output' : 'View Programmer Details & Output'}</span>
+              <ChevronDown size={12} className={`transform transition-transform ${showUploadDetails ? 'rotate-180' : ''}`} />
+            </button>
+
+            {showUploadDetails && (
+              <div className="mt-2 p-3 rounded-lg bg-[#07090E] border border-[var(--border-color)] space-y-2 font-mono text-[11px] text-[var(--text-secondary)]">
+                {uploadFailure.command && (
+                  <div>
+                    <span className="text-[var(--text-muted)] text-[10px] uppercase font-bold block mb-0.5">Executed Command:</span>
+                    <div className="p-2 rounded bg-black/40 text-[var(--text-primary)] break-all select-all text-[10px]">
+                      {uploadFailure.command}
+                    </div>
+                  </div>
+                )}
+                {uploadFailure.exit_code !== undefined && (
+                  <div className="text-[10px] text-[var(--text-muted)]">
+                    Exit Code: <span className="font-bold text-[var(--accent-red)]">{uploadFailure.exit_code}</span>
+                  </div>
+                )}
+                {uploadFailure.raw_output && (
+                  <div>
+                    <span className="text-[var(--text-muted)] text-[10px] uppercase font-bold block mb-0.5">Programmer Console Output:</span>
+                    <pre className="p-2 rounded bg-black/40 text-[var(--accent-red)]/90 max-h-48 overflow-y-auto whitespace-pre-wrap leading-tight text-[10px]">
+                      {uploadFailure.raw_output}
+                    </pre>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Safety notice */}
+          <div className="flex items-center gap-2 pt-1 text-[11px] text-[var(--text-muted)] font-mono">
+            <span className="px-1.5 py-0.5 rounded-full bg-[var(--bg-surface)] text-[var(--text-secondary)] border border-[var(--border-color)] font-bold">
+              SAFETY CONFIRMED
+            </span>
+            <span>Original sketch untouched · {uploadFailure.firmware_uploaded === false ? 'No firmware written to board' : 'Upload outcome unverified'}</span>
+          </div>
+        </div>
+      )}
+
       {/* 2b. Transparent Instrumentation Feedback Card */}
       {instrumentationError && (
-        <div className="p-3.5 rounded-xl bg-red-950/30 border border-red-500/30 flex items-start gap-3 text-xs font-mono text-red-300">
-          <AlertCircle size={16} className="text-red-400 shrink-0 mt-0.5" />
-          <div>
-            <span className="font-bold">Instrumentation Failed: </span>
-            {instrumentationError}
+        <div className="p-4 rounded-xl bg-[var(--accent-red-bg)] border border-[var(--accent-red)]/30 space-y-3 text-xs font-sans text-[var(--text-primary)] shadow-sm">
+          <div className="flex items-start gap-3">
+            <AlertCircle size={18} className="text-[var(--accent-red)] shrink-0 mt-0.5" />
+            <div className="space-y-1 flex-1">
+              <div className="font-bold text-[var(--accent-red)] text-sm">
+                {errorCode === 'ARIS_BACKEND_UNAVAILABLE'
+                  ? 'ARIS Backend Service Unavailable'
+                  : errorCode === 'ARIS_OPERATION_TIMEOUT'
+                  ? 'Firmware Build / Operation Timeout'
+                  : errorDetails?.overflow_type === 'FLASH'
+                  ? 'Microcontroller Flash Memory Overflow'
+                  : errorDetails?.overflow_type === 'SRAM'
+                  ? 'Microcontroller Static SRAM Overflow'
+                  : errorCode === 'BUILD_FAILED'
+                  ? 'Firmware Compilation Failed'
+                  : errorCode === 'ARIS_FLASH_FAILED'
+                  ? 'Microcontroller Upload / Flash Failed'
+                  : 'Instrumentation & Deployment Error'}
+              </div>
+              <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+                {instrumentationError}
+              </p>
+              {errorCode === 'ARIS_BACKEND_UNAVAILABLE' && (
+                <div className="pt-2 flex items-center gap-2">
+                  <button
+                    onClick={async () => {
+                      try {
+                        await apiHealth();
+                        setInstrumentationError(null);
+                        setErrorCode(null);
+                      } catch {
+                        // Still unavailable
+                      }
+                    }}
+                    className="aris-btn-secondary text-[11px] py-1 px-2.5"
+                  >
+                    Retry Connection
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {errorDetails && (errorDetails.original_flash_bytes || errorDetails.instrumented_flash_bytes) && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-[var(--border-color)] text-[11px] font-mono">
+              <div className="p-2.5 rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)]">
+                <div className="text-[var(--text-muted)] text-[10px]">Original Firmware</div>
+                <div className="font-bold text-[var(--text-primary)] mt-0.5">
+                  {errorDetails.original_flash_bytes ? `${errorDetails.original_flash_bytes.toLocaleString()} B` : 'Unknown'}
+                </div>
+              </div>
+              <div className="p-2.5 rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)]">
+                <div className="text-[var(--text-muted)] text-[10px]">Instrumented Build</div>
+                <div className="font-bold text-[var(--accent-red)] mt-0.5">
+                  {errorDetails.instrumented_flash_bytes ? `${errorDetails.instrumented_flash_bytes.toLocaleString()} B` : 'Unknown'}
+                </div>
+              </div>
+              <div className="p-2.5 rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)]">
+                <div className="text-[var(--text-muted)] text-[10px]">Board Limit</div>
+                <div className="font-bold text-[var(--text-primary)] mt-0.5">
+                  {errorDetails.max_flash_bytes ? `${errorDetails.max_flash_bytes.toLocaleString()} B` : 'Unknown'}
+                </div>
+              </div>
+              <div className="p-2.5 rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)]">
+                <div className="text-[var(--text-muted)] text-[10px]">Overhead / Delta</div>
+                <div className="font-bold text-[var(--accent-amber)] mt-0.5">
+                  {errorDetails.instrumentation_overhead_bytes ? `+${errorDetails.instrumentation_overhead_bytes.toLocaleString()} B` : 'Unknown'}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {errorDetails && (errorDetails.original_sram_bytes || errorDetails.instrumented_sram_bytes) && (
+            <div className="space-y-1.5 pt-2 border-t border-[var(--border-color)]">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px] font-mono">
+                <div className="p-2.5 rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)]">
+                  <div className="text-[var(--text-muted)] text-[10px]">Static SRAM (Original)</div>
+                  <div className="font-bold text-[var(--text-primary)] mt-0.5">
+                    {errorDetails.original_sram_bytes ? `${errorDetails.original_sram_bytes.toLocaleString()} B` : 'Unknown'}
+                  </div>
+                </div>
+                <div className="p-2.5 rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)]">
+                  <div className="text-[var(--text-muted)] text-[10px]">Static SRAM (Instrumented)</div>
+                  <div className="font-bold text-[var(--accent-red)] mt-0.5">
+                    {errorDetails.instrumented_sram_bytes ? `${errorDetails.instrumented_sram_bytes.toLocaleString()} B` : 'Unknown'}
+                  </div>
+                </div>
+                <div className="p-2.5 rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)]">
+                  <div className="text-[var(--text-muted)] text-[10px]">Static SRAM Limit</div>
+                  <div className="font-bold text-[var(--text-primary)] mt-0.5">
+                    {errorDetails.max_sram_bytes ? `${errorDetails.max_sram_bytes.toLocaleString()} B` : 'Unknown'}
+                  </div>
+                </div>
+              </div>
+              <p className="text-[10px] text-[var(--text-muted)] leading-normal font-sans">
+                Static SRAM accounting includes only global and static variables (.data + .bss). It does NOT include dynamic heap allocations (such as OLED display buffers) or runtime stack frames. Stack safety cannot be guaranteed by static analysis alone.
+              </p>
+            </div>
+          )}
+
+          {errorDetails?.suggested_actions && errorDetails.suggested_actions.length > 0 && (
+            <div className="pt-2 border-t border-[var(--border-color)]">
+              <div className="text-[var(--text-primary)] font-bold mb-1">Recommended Next Actions:</div>
+              <ul className="list-disc list-inside space-y-1 text-[var(--text-secondary)]">
+                {errorDetails.suggested_actions.map((act: string, idx: number) => (
+                  <li key={idx}>{act}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {errorDetails?.lean_profile_recommended && instrumentationProfile !== 'LEAN' && (
+            <div className="pt-2 border-t border-[var(--border-color)] flex items-center gap-2">
+              <button
+                onClick={() => handleInstrumentAndRun('LEAN')}
+                className="px-4 py-2 rounded-lg bg-[var(--accent-amber)] hover:opacity-90 text-black font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm"
+              >
+                <RotateCw size={13} />
+                <span>Switch to LEAN Profile & Retry Build</span>
+              </button>
+            </div>
+          )}
+
+          <div className="flex items-center gap-2 pt-1 text-[11px] text-[var(--text-muted)] font-mono">
+            <span className="px-1.5 py-0.5 rounded-full bg-[var(--bg-surface)] text-[var(--text-secondary)] border border-[var(--border-color)] font-bold">
+              SAFEGUARD ACTIVE
+            </span>
+            <span>Original sketch on disk was NOT modified · No firmware uploaded</span>
           </div>
         </div>
       )}
@@ -211,13 +695,22 @@ export const FirmwareWorkspace: React.FC<FirmwareWorkspaceProps> = ({
             <div className="flex items-center gap-2">
               <CheckCircle2 size={16} className="text-[var(--accent-green)]" />
               <span className="font-bold text-[var(--text-primary)]">
-                Transparent Shadow Build Ready
+                {instrumentationResult.upload_result?.status === 'FLASH_SUCCESS' ? 'Transparent Physical Deployment Active' : 'Transparent Shadow Build Ready'}
               </span>
               <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-950/60 text-emerald-400 border border-emerald-500/30 font-bold">
                 ORIGINAL SKETCH UNTOUCHED
               </span>
             </div>
             <div className="flex items-center gap-2">
+              {instrumentationResult.telemetry_active && (
+                <button
+                  onClick={() => onNavigate?.('telemetry')}
+                  className="px-2.5 py-1 rounded bg-[var(--accent-cyan)] hover:opacity-90 text-white font-bold text-[10px] flex items-center gap-1 shadow-sm transition-all"
+                >
+                  <Activity size={12} />
+                  <span>Live Telemetry →</span>
+                </button>
+              )}
               <button
                 onClick={() => setShowDiff(!showDiff)}
                 className="px-2.5 py-1 rounded bg-[var(--bg-card)] border border-[var(--border-color)] text-[var(--accent-cyan)] hover:text-white"
@@ -247,10 +740,28 @@ export const FirmwareWorkspace: React.FC<FirmwareWorkspaceProps> = ({
             </div>
 
             <div className="p-2.5 rounded bg-[var(--bg-card)] border border-[var(--border-color)] space-y-1">
-              <div className="text-[10px] text-[var(--text-muted)] font-semibold uppercase">Hardware Target</div>
-              <div className="text-[var(--text-primary)] font-bold">{instrumentationResult.board_id} ({instrumentationResult.build_result.mcu})</div>
-              <div className="text-[10px] text-emerald-400">
-                Deployment Ready (Verification Phase Complete)
+              <div className="text-[10px] text-[var(--text-muted)] font-semibold uppercase">
+                {instrumentationResult.upload_result ? 'Physical Deployment' : 'Hardware Target'}
+              </div>
+              <div className="text-[var(--text-primary)] font-bold">
+                {instrumentationResult.upload_result?.status === 'FLASH_SUCCESS' ? (
+                  <span className="text-emerald-400">
+                    {instrumentationResult.upload_result.port || 'COM4'} Upload Complete
+                  </span>
+                ) : (
+                  `${instrumentationResult.board_id} (${instrumentationResult.build_result.mcu})`
+                )}
+              </div>
+              <div className="text-[10px]">
+                {instrumentationResult.telemetry_active ? (
+                  <span className="text-emerald-400 font-semibold">
+                    Handshake Confirmed · Telemetry Live
+                  </span>
+                ) : (
+                  <span className="text-emerald-400">
+                    Deployment Ready (Verification Phase Complete)
+                  </span>
+                )}
               </div>
             </div>
           </div>

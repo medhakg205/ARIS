@@ -125,6 +125,13 @@ export interface FirmwareRecord {
   elf_path?: string;
   map_content?: string;
   created_at: string;
+  parent_firmware_id?: string | null;
+  candidate_id?: string | null;
+  source_hash?: string | null;
+  status?: 'ACTIVE' | 'SUPERSEDED' | 'BASELINE' | 'CANDIDATE' | 'ROLLED_BACK';
+  applied?: boolean;
+  applied_at?: string | null;
+  backup_path?: string | null;
 }
 
 export interface IDESketchInfo {
@@ -201,7 +208,10 @@ export type OptimizationStatus =
   | 'VALIDATED'
   | 'REJECTED'
   | 'ROLLED_BACK'
-  | 'FAILED';
+  | 'FAILED'
+  | 'ACCEPTED'
+  | 'APPLIED'
+  | 'ACTIVE';
 
 export type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH';
 
@@ -222,11 +232,27 @@ export interface OptimizationCandidate {
   validation_required: boolean;
   status: OptimizationStatus;
 
-  // ARIS 2.0 Hardware-Aware additions (optional for backwards compatibility)
+  // ARIS Hardware-Aware and Provenance additions
   candidate_id?: string;
   transformation_id?: string;
   transformation_category?: string;
   rationale?: string;
+  parent_firmware_id?: string | null;
+  parent_source_hash?: string | null;
+  candidate_source_hash?: string | null;
+  board_id?: string | null;
+  mcu?: string | null;
+  architecture?: string | null;
+  fqbn?: string | null;
+  hypothesis?: string | null;
+  hypothesis_text?: string | null;
+  prediction?: Record<string, unknown> | null;
+  applied?: boolean;
+  applied_at?: string | null;
+  backup_path?: string | null;
+  generator_source?: string;
+  reversibility?: string;
+  predicted_metrics_summary?: Record<string, string>;
   trade_offs_explained?: Record<string, string>;
   resource_impact?: {
     flash_headroom_bytes_remaining?: number;
@@ -384,6 +410,7 @@ export interface ConnectionStatus {
   port?: string;
   baud_rate?: number;
   run_id?: string;
+  active_run_id?: string | null;
   available_ports: string[];
   discovered_ports?: DiscoveredPortInfo[];
   simulator_active?: boolean;
@@ -391,9 +418,21 @@ export interface ConnectionStatus {
   board_profile?: BoardProfile | null;
   identity_mismatch?: boolean;
   mismatch_reason?: string | null;
+  handshake?: Record<string, any> | null;
+  is_physical_hardware?: boolean;
+  packets_received?: number;
+  packets_valid?: number;
+  packets_rejected?: number;
 }
 
 // ---- Health ----
+export interface HealthCheckItem {
+  name: string;
+  status: 'PASS' | 'WARNING' | 'FAIL' | 'NOT AVAILABLE';
+  message: string;
+  detail?: string;
+}
+
 export interface HealthStatus {
   status: 'ONLINE' | 'DEGRADED' | 'OFFLINE';
   version: string;
@@ -404,6 +443,7 @@ export interface HealthStatus {
   simulator_running: boolean;
   mode: string;
   supported_boards: string[];
+  checks?: Record<string, HealthCheckItem>;
 }
 
 // ---- WebSocket Frame ----

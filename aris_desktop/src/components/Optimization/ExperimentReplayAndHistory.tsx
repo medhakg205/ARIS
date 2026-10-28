@@ -514,12 +514,18 @@ export const ExperimentReplayAndHistory: React.FC<ExperimentReplayAndHistoryProp
                         <td className="p-2.5">
                           <span
                             className={`text-[9px] font-mono px-1.5 py-0.5 rounded font-bold uppercase ${
-                              exp.is_simulated || exp.is_demo
+                              exp.experiment_id === 'EXP-PHYS-001' || (exp as any).evidence_type === 'HISTORICAL_PHYSICAL_VALIDATION'
+                                ? 'bg-[var(--accent-cyan-bg)] text-[var(--accent-cyan)] border border-[var(--accent-cyan)]/30'
+                                : exp.is_simulated || exp.is_demo
                                 ? 'bg-[var(--accent-amber-bg)] text-[var(--accent-amber)] border border-[var(--accent-amber)]/30'
                                 : 'bg-[var(--accent-green-bg)] text-[var(--accent-green)] border border-[var(--accent-green)]/30'
                             }`}
                           >
-                            {exp.is_simulated || exp.is_demo ? 'SIMULATION' : 'REAL HARDWARE'}
+                            {exp.experiment_id === 'EXP-PHYS-001' || (exp as any).evidence_type === 'HISTORICAL_PHYSICAL_VALIDATION'
+                              ? 'HISTORICAL PHYSICAL VALIDATION'
+                              : exp.is_simulated || exp.is_demo
+                              ? 'SIMULATED'
+                              : 'LIVE PHYSICAL'}
                           </span>
                         </td>
                         <td className="p-2.5 text-[var(--text-secondary)]">
@@ -544,7 +550,7 @@ export const ExperimentReplayAndHistory: React.FC<ExperimentReplayAndHistoryProp
                           </span>
                         </td>
                         <td className="p-2.5 text-right text-[var(--text-muted)] text-[11px]">
-                          {exp.created_at ? new Date(exp.created_at).toLocaleDateString() : 'Today'}
+                          {exp.created_at ? new Date(exp.created_at).toLocaleDateString() : '—'}
                         </td>
                         <td className="p-2.5 text-center">
                           <button

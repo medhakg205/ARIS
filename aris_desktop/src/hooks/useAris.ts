@@ -32,8 +32,10 @@ import {
   apiGetFirmware,
   apiSetupDemo,
   apiCreateRun,
+  apiGetRun,
   apiStartRun,
   apiStopRun,
+  apiGetTelemetry,
   apiGetFindings,
   apiGetOptimizations,
   apiGetOptimization,
@@ -66,6 +68,21 @@ const MAX_HISTORY = 200;
 export interface MetricHistory {
   metric: CanonicalMetric;
   samples: TelemetrySample[];
+}
+
+// Auto-detect suppression lock to prevent port racing during upload/build
+let autoDetectPausedUntil = 0;
+
+export function pauseHardwareAutoDetect(durationMs = 25000): void {
+  autoDetectPausedUntil = Math.max(autoDetectPausedUntil, Date.now() + durationMs);
+}
+
+export function resumeHardwareAutoDetect(): void {
+  autoDetectPausedUntil = 0;
+}
+
+export function isHardwareAutoDetectPaused(): boolean {
+  return Date.now() < autoDetectPausedUntil;
 }
 
 export function useARIS() {
@@ -263,6 +280,9 @@ export function useARIS() {
     apiGetBoards()
       .then((b) => {
         setBoards(b);
+        if (b.length > 0) {
+          setSelectedBoard((prev) => prev || b.find((board) => board.board_id === 'arduino_uno') || b[0]);
+        }
       })
       .catch(() => {});
   }, [backendOnline]);
@@ -282,18 +302,48 @@ export function useARIS() {
         setConnectionStatus(cs);
         setHardwareConnected(cs.connected);
 
-        // If hardware is physically connected, sync real board profile if available
+        // If hardware is physically connected, sync real board profile and active run
         if (cs.connected) {
           setIsDemo(false);
           setIsSimulated(false);
+
+          if (boards.length > 0) {
+            const targetBoardId = cs.handshake?.board_id || cs.discovered_ports?.[0]?.suggested_board_id || 'arduino_uno';
+            const matched = boards.find((b) => b.board_id === targetBoardId) || boards[0];
+            setSelectedBoard((prev) => prev || matched);
+          }
+
+          if (cs.active_run_id && (!activeRun || activeRun.run_id !== cs.active_run_id)) {
+            try {
+              const runRec = await apiGetRun(cs.active_run_id);
+              if (runRec) {
+                setActiveRun(runRec);
+              }
+            } catch {
+              setActiveRun({
+                run_id: cs.active_run_id,
+                board_id: cs.handshake?.board_id || 'arduino_uno',
+                firmware_id: undefined,
+                instrumentation_mode: 'BALANCED',
+                start_time: new Date().toISOString(),
+                end_time: undefined,
+                status: 'RUNNING',
+                is_simulated: false,
+                is_demo: false,
+                baseline_id: undefined,
+              });
+            }
+          }
           return;
-        } else if (!isDemo && selectedBoard && !cs.connected) {
-          // Hardware disconnected and not in demo mode
-          setSelectedBoard(null);
+        }
+
+        if (isHardwareAutoDetectPaused()) {
+          return;
         }
 
         // Check if any serial ports are physically present
         if (cs.available_ports && cs.available_ports.length > 0 && !cs.connected) {
+          if (isHardwareAutoDetectPaused()) return;
           isDetecting = true;
           const result = await apiAutoDetect();
           if (result.found && result.connected) {
@@ -331,6 +381,33 @@ export function useARIS() {
     return 'NO_HARDWARE';
   }, [isDemo, isSimulated, loading, hardwareConnected, selectedBoard]);
 
+  // Synchronize findings and optimizations whenever activeRun changes
+  useEffect(() => {
+    if (!backendOnline || !activeRun?.run_id) return;
+    let isCancelled = false;
+
+    const fetchAnalysisForRun = async () => {
+      try {
+        setLoad('findings', true);
+        const [f, o] = await Promise.all([
+          apiGetFindings(activeRun.run_id),
+          apiGetOptimizations(activeRun.run_id),
+        ]);
+        if (!isCancelled) {
+          if (f && f.length > 0) setFindings(f);
+          if (o && o.length > 0) setOptimizations(o);
+        }
+      } catch {
+        // non-blocking
+      } finally {
+        if (!isCancelled) setLoad('findings', false);
+      }
+    };
+
+    fetchAnalysisForRun();
+    return () => { isCancelled = true; };
+  }, [backendOnline, activeRun?.run_id, setLoad]);
+
   // ---- Arduino IDE Auto-Sync: Auto-detects sketches from Arduino IDE 2.x ----
   const refreshIDESketches = useCallback(async () => {
     if (!backendOnline) return;
@@ -358,13 +435,31 @@ export function useARIS() {
 
   useEffect(() => { refreshFirmware(); }, [refreshFirmware]);
 
+  // ---- Load validation results ----
+  const loadValidation = useCallback(async (experimentId: string) => {
+    try {
+      const result = await apiGetValidationResult(experimentId);
+      setValidations((prev) => ({ ...prev, [experimentId]: result }));
+      return result;
+    } catch {
+      return null;
+    }
+  }, []);
+
   // ---- Load experiments ----
   const refreshExperiments = useCallback(() => {
     if (!backendOnline) return;
     apiListExperiments()
-      .then(setExperiments)
+      .then((exps) => {
+        setExperiments(exps);
+        exps.forEach((exp) => {
+          if (exp.validation_id || exp.status === 'COMPLETED' || exp.status === 'VALIDATED') {
+            loadValidation(exp.experiment_id);
+          }
+        });
+      })
       .catch(() => {});
-  }, [backendOnline]);
+  }, [backendOnline, loadValidation]);
 
   useEffect(() => { refreshExperiments(); }, [refreshExperiments]);
 
@@ -410,15 +505,45 @@ export function useARIS() {
     return unsub;
   }, []);
 
-  // Connect WS when we have an active run
+  // Connect WS and hydrate existing telemetry when we have an active run
   useEffect(() => {
     if (activeRun && backendOnline) {
-      arisWs.connect(activeRun.run_id);
+      const isRunActive = activeRun.status === 'RUNNING' || activeRun.status === 'COLLECTING';
+      if (isRunActive) {
+        arisWs.connect(activeRun.run_id);
+      } else {
+        arisWs.disconnect();
+      }
+
+      // Hydrate existing telemetry history and latest samples from backend REST API
+      apiGetTelemetry(activeRun.run_id, 200)
+        .then((samples) => {
+          if (samples && samples.length > 0) {
+            const latest: Record<string, TelemetrySample> = {};
+            const historyMap: Record<string, TelemetrySample[]> = {};
+            samples.forEach((s) => {
+              latest[s.metric] = s;
+              if (!historyMap[s.metric]) historyMap[s.metric] = [];
+              historyMap[s.metric].push(s);
+            });
+            setLatestSamples((prev) => ({ ...latest, ...prev }));
+            setTelemetryHistory((prev) => {
+              const merged = { ...prev };
+              Object.entries(historyMap).forEach(([metric, metricSamples]) => {
+                const existing = merged[metric] || [];
+                const combined = [...metricSamples, ...existing.filter((e) => !metricSamples.some((m) => m.sequence === e.sequence))];
+                merged[metric] = combined.slice(-MAX_HISTORY);
+              });
+              return merged;
+            });
+          }
+        })
+        .catch(() => {});
     } else if (!activeRun) {
       arisWs.disconnect();
     }
     return () => {};
-  }, [activeRun?.run_id, backendOnline]);
+  }, [activeRun?.run_id, activeRun?.status, backendOnline]);
 
   // ---- Actions ----
   const autoDetectHardware = useCallback(async () => {
@@ -635,6 +760,7 @@ export function useARIS() {
     if (!activeRun) return;
     setLoad('stop', true);
     try {
+      arisWs.disconnect();
       const stopped = await apiStopRun(activeRun.run_id);
       setActiveRun(stopped);
       // Load findings + optimizations after run
@@ -738,16 +864,6 @@ export function useARIS() {
     }
   }, [selectedBoard, activeRun, setLoad, refreshExperiments]);
 
-  const loadValidation = useCallback(async (experimentId: string) => {
-    try {
-      const result = await apiGetValidationResult(experimentId);
-      setValidations((prev) => ({ ...prev, [experimentId]: result }));
-      return result;
-    } catch {
-      return null;
-    }
-  }, []);
-
   const runExperimentValidation = useCallback(async (experimentId: string) => {
     setLoad(`validate_${experimentId}`, true);
     try {
@@ -781,6 +897,23 @@ export function useARIS() {
       }
 
       // 3. Determine execution provenance: physical hardware vs simulation
+      // If an active run is already executing or has finished streaming, stop collection and validate directly
+      if (activeRun) {
+        const candRunId = activeRun.run_id;
+        if (activeRun.status === 'RUNNING') {
+          try {
+            await apiStopRun(candRunId);
+          } catch (_) {}
+          setActiveRun((prev) => (prev ? { ...prev, status: 'COMPLETED' } : null));
+        }
+
+        // Empirically validate candidate against physical baseline in DB
+        const report = await apiValidateExperiment(experimentId, candRunId);
+        await refreshExperiments();
+        await loadValidation(experimentId);
+        return report;
+      }
+
       const isPhysical = hardwareConnected && Boolean(selectedBoard) && Boolean(connectionStatus?.port);
       const targetBoard = exp.board_id || selectedBoard?.board_id || 'arduino_uno';
 
@@ -910,11 +1043,11 @@ Automated compilation, flashing, and hypothesis-verified hardware recovery upon 
     uploadFirmware, refreshFirmware,
     ideSketches, activeIDESketch, syncIDESketch, saveIDESketch, refreshIDESketches,
     // Run
-    activeRun, startRun, startDemo, stopRun,
+    activeRun, setActiveRun, startRun, startDemo, stopRun,
     // Telemetry
     latestSamples, telemetryHistory,
     // Analysis
-    findings, optimizations,
+    findings, setFindings, optimizations,
     // AI
     generateCandidate,
     // Approval
@@ -928,5 +1061,8 @@ Automated compilation, flashing, and hypothesis-verified hardware recovery upon 
     lastError, clearError,
     // Loading
     loading,
+    // Auto-detect control
+    pauseAutoDetect: pauseHardwareAutoDetect,
+    resumeAutoDetect: resumeHardwareAutoDetect,
   };
 }

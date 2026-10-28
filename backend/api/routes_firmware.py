@@ -10,13 +10,16 @@ from typing import List, Dict, Any, Optional
 from pydantic import BaseModel, Field
 from fastapi import APIRouter
 
-from backend.api.dependencies import get_firmware_mgr, get_build_flasher
-from backend.database.models import FirmwareRecord
+from backend.api.dependencies import get_firmware_mgr, get_build_flasher, get_db, get_serial_mgr
+from backend.database.models import FirmwareRecord, RunRecord
 from backend.instrumentation.sketch_instrumenter import SketchInstrumenter
+from datetime import datetime, timezone
 from backend.analysis.static_analyzer import StaticAnalyzer
+from backend.firmware.preflight_analyzer import PreflightMemoryAnalyzer, PreflightMemoryReport
 from backend.telemetry.telemetry_schema import ArisException
 
 import os
+import time
 import json
 import glob
 import urllib.parse
@@ -182,6 +185,69 @@ def sync_ide_sketch(req: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+class ApplyCandidateRequest(BaseModel):
+    candidate_id: str = Field(..., description="Optimization candidate identifier")
+    sketch_path: Optional[str] = Field(default=None, description="Path to .ino sketch")
+    expected_hash: Optional[str] = Field(default=None, description="Expected SHA-256 of original file before apply")
+
+
+class RevertCandidateRequest(BaseModel):
+    candidate_id: Optional[str] = Field(default=None, description="Optimization candidate identifier")
+    sketch_path: Optional[str] = Field(default=None, description="Path to .ino sketch")
+    backup_path: Optional[str] = Field(default=None, description="Specific backup file path to restore")
+
+
+@router.post("/api/firmware/apply-candidate")
+def apply_candidate_endpoint(req: ApplyCandidateRequest) -> Dict[str, Any]:
+    """
+    Safely applies a validated optimization candidate to the user's local sketch:
+    1. Verifies the sketch file exists on disk and is a valid C/C++ sketch.
+    2. Calculates current SHA-256 hash. If expected_hash is provided and mismatches,
+       aborts with ARIS_SOURCE_APPLY_FAILED (409 Conflict).
+    3. Backs up the original sketch into .aris/backups/<sketch>.<timestamp>.bak.
+    4. Computes replacement code, strictly ensuring zero ARIS runtime code is introduced.
+    5. Atomically writes the optimized code to disk and verifies SHA-256 after write.
+    6. If write verification fails, automatically rolls back to backup and aborts.
+    7. Updates candidate and firmware provenance in the database only after verification.
+    """
+    from backend.optimization.source_application_engine import apply_candidate_to_source
+    db = get_db()
+    return apply_candidate_to_source(
+        candidate_id=req.candidate_id,
+        sketch_path=req.sketch_path,
+        expected_hash=req.expected_hash,
+        db=db
+    )
+
+
+@router.post("/api/firmware/revert-candidate")
+def revert_candidate_endpoint(req: RevertCandidateRequest) -> Dict[str, Any]:
+    """
+    Reverts an applied candidate by restoring the sketch from its .aris/backups/ file.
+    """
+    from backend.optimization.source_application_engine import revert_candidate_source
+    db = get_db()
+    return revert_candidate_source(
+        candidate_id=req.candidate_id,
+        sketch_path=req.sketch_path,
+        backup_path=req.backup_path,
+        db=db
+    )
+
+
+@router.get("/api/firmware/active")
+def get_active_firmware_endpoint() -> Dict[str, Any]:
+    """Retrieves current active firmware version and lineage."""
+    db = get_db()
+    for fw in db.list_firmware():
+        if fw.status == "ACTIVE":
+            return fw.model_dump()
+    fws = db.list_firmware()
+    if fws:
+        return fws[0].model_dump()
+    return {"status": "NO_FIRMWARE", "firmware_id": None}
+
+
 @router.post("/api/firmware/save-ide")
 def save_ide_sketch(req: SaveIDESketchRequest) -> Dict[str, Any]:
     """
@@ -197,8 +263,12 @@ def save_ide_sketch(req: SaveIDESketchRequest) -> Dict[str, Any]:
         return {"success": False, "error": f"File does not exist: {req.path}"}
 
     try:
-        # Create backup
-        bak_path = f"{req.path}.bak"
+        # Create backup in .aris/backups/
+        sketch_dir = os.path.dirname(os.path.abspath(req.path))
+        backup_dir = os.path.join(sketch_dir, ".aris", "backups")
+        os.makedirs(backup_dir, exist_ok=True)
+        bak_path = os.path.join(backup_dir, f"{os.path.basename(req.path)}.{int(time.time()*1000)}.bak")
+
         with open(req.path, "r", encoding="utf-8") as orig:
             original_code = orig.read()
         with open(bak_path, "w", encoding="utf-8") as bak:
@@ -264,6 +334,8 @@ class InstrumentAndBuildRequest(BaseModel):
     port: Optional[str] = None
     run_id: Optional[str] = None
     execute_upload: bool = False
+    instrumentation_mode: str = "BALANCED"
+    sram_warning_threshold_bytes: int = 256
 
 
 @router.post("/api/firmware/instrument-and-build")
@@ -303,24 +375,104 @@ def instrument_and_build_endpoint(req: InstrumentAndBuildRequest) -> Dict[str, A
         source_code=source_code,
         source_path=sketch_path,
         board_id=req.board_id,
-        run_id=req.run_id
+        run_id=req.run_id,
+        instrumentation_mode=req.instrumentation_mode
     )
 
-    # 3. Compile the shadow sketch via BuildFlasher / arduino-cli
+    # 3. Preflight Memory Analysis (Original vs Instrumented)
+    preflight_analyzer = PreflightMemoryAnalyzer()
+    preflight_report = preflight_analyzer.analyze_memory_and_instrumentation(
+        original_source=source_code,
+        board_id=req.board_id,
+        instrumented_source=inst_result.instrumented_source,
+        instrumentation_mode=req.instrumentation_mode,
+        sram_warning_threshold_bytes=req.sram_warning_threshold_bytes
+    )
+
+    # 4. Compile the shadow sketch via BuildFlasher / arduino-cli
     flasher = get_build_flasher()
     build_result = flasher.compile_firmware(
         source_code=inst_result.instrumented_source,
         board_id=req.board_id
     )
 
-    # 4. Optional physical upload (deferred until explicitly enabled)
+    # 4. Physical upload, handshake verification, and telemetry activation
     upload_result = None
-    if req.execute_upload and req.port:
-        upload_result = flasher.flash_board(
-            board_id=req.board_id,
-            port=req.port,
-            binary_path=build_result.get("binary_path")
-        )
+    run_record = None
+    handshake_data = None
+    if req.execute_upload:
+        target_port = req.port
+        if not target_port:
+            from backend.serial.serial_discovery import scan_serial_ports
+            ports = scan_serial_ports()
+            arduino_ports = [p for p in ports if p.is_arduino]
+            if arduino_ports:
+                target_port = arduino_ports[0].device
+            elif ports:
+                target_port = ports[0].device
+
+        if target_port:
+            try:
+                upload_result = flasher.flash_board(
+                    board_id=req.board_id,
+                    port=target_port,
+                    binary_path=build_result.get("binary_path")
+                )
+                if upload_result.get("status") == "FLASH_SUCCESS":
+                    db = get_db()
+                    serial_mgr = get_serial_mgr()
+                    handshake_data = serial_mgr.handshake_data
+                    fw_id = None
+                    try:
+                        fw_mgr = get_firmware_mgr()
+                        sketch_name = os.path.basename(sketch_path) if sketch_path else "Transparent Sketch"
+                        fw_record = fw_mgr.upload_firmware(
+                            name=sketch_name,
+                            source_code=source_code
+                        )
+                        fw_id = fw_record.firmware_id
+                    except Exception:
+                        pass
+                    run_record = RunRecord(
+                        run_id=inst_result.run_id,
+                        board_id=req.board_id,
+                        firmware_id=fw_id,
+                        instrumentation_mode=req.instrumentation_mode.upper(),
+                        start_time=datetime.now(timezone.utc).isoformat(),
+                        end_time=None,
+                        status="RUNNING",
+                        is_simulated=False,
+                        is_demo=False,
+                        baseline_id=None
+                    )
+                    db.save_run(run_record)
+                    serial_mgr.set_active_run(inst_result.run_id)
+            except ArisException as e:
+                # Capture upload failure cleanly without losing successful compilation and preflight analysis
+                upload_result = {
+                    "status": "FLASH_FAILED",
+                    "error_code": e.error_code,
+                    "message": e.message,
+                    **(e.details or {})
+                }
+        else:
+            upload_result = {
+                "status": "FLASH_FAILED",
+                "failure_category": "DEVICE_DISCONNECTED",
+                "title": "Upload aborted — No hardware port detected",
+                "error_summary": "No serial or COM port was provided or detected on the host. Connect your Arduino board via USB before uploading.",
+                "guidance": [
+                    "Connect your Arduino board to a USB port.",
+                    "Verify the USB cable supports data transfer.",
+                    "Check Windows Device Manager to confirm the COM port assignment.",
+                    "Use Virtual Simulation mode to run and inspect telemetry without physical hardware."
+                ],
+                "command": f"{flasher.arduino_cli_path or 'arduino-cli'} upload --fqbn {req.board_id}",
+                "exit_code": 1,
+                "raw_output": "Device not found: 0 COM ports detected.",
+                "firmware_uploaded": False,
+                "compilation_succeeded": True
+            }
 
     return {
         "status": "BUILD_SUCCESS" if build_result.get("status") == "BUILD_SUCCESS" else "FAILED",
@@ -339,9 +491,10 @@ def instrument_and_build_endpoint(req: InstrumentAndBuildRequest) -> Dict[str, A
             "estimated_sram_static_bytes": static_result.estimated_sram_static_bytes,
         },
         "build_result": build_result,
+        "preflight_memory": preflight_report.model_dump(),
         "upload_result": upload_result,
-        "ready_for_physical_deployment": True
+        "handshake": handshake_data,
+        "run": run_record.model_dump() if run_record else None,
+        "ready_for_physical_deployment": True,
+        "telemetry_active": bool(upload_result and upload_result.get("status") == "FLASH_SUCCESS")
     }
-
-
-

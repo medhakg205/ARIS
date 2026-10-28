@@ -122,12 +122,33 @@ class CandidateGenerationEngine:
             memory=memory
         )
 
-        # 7. Rationale synthesis
+        # 7. Hypothesis & Rationale synthesis
+        default_hypotheses = {
+            "TR-TIME-001": "Replacing synchronous busy-wait delay() with non-blocking timing yields execution cycles to concurrent loop iterations.",
+            "TR-GPIO-001": "Replacing digitalWrite() with direct port register bitmasking eliminates runtime mapping overhead in high-frequency loops.",
+            "TR-MEM-001": "Storing static strings in Flash ROM via F() macro eliminates SRAM consumption during MCU initialization.",
+            "TR-SERIAL-001": "Rate limiting repetitive serial transmissions prevents hardware UART TX ring buffer saturation stalls.",
+        }
+        hypo_text = hypothesis.statement if hypothesis and hasattr(hypothesis, "statement") else default_hypotheses.get(transform.transformation_id, f"Applying {transform.name} improves execution efficiency on {capability_graph.mcu or 'target MCU'}.")
+
         rationale = transform.rationale_template.format(**evidence) if "{duration}" in transform.rationale_template and "duration" in evidence else transform.description
         hardware_consideration = (
             f"Evaluated for {capability_graph.mcu or 'MCU'} ({capability_graph.architecture or 'arch'}) "
             f"under clock {capability_graph.clock.value if capability_graph.clock else 16000000}Hz."
         )
+
+        pred_summary = {
+            "loop_responsiveness": f"improved ({calibrated_pred.loop_time_delta_pct:+.1f}%)" if calibrated_pred.loop_time_delta_pct < 0 else "unchanged",
+            "flash": f"{'+' if calibrated_pred.flash_delta_pct > 0 else ''}{calibrated_pred.flash_delta_pct:.1f}% expected",
+            "sram": f"{'+' if calibrated_pred.sram_delta_pct > 0 else ''}{calibrated_pred.sram_delta_pct:.1f}% expected",
+            "risk": transform.safety_risk,
+            "reversibility": transform.reversibility
+        }
+
+        import os
+        generator_src = "DETERMINISTIC_RULE_SYNTHESIS"
+        if os.environ.get("GEMINI_API_KEY") or os.environ.get("OPENAI_API_KEY"):
+            generator_src = "AI_ASSISTED_SYNTHESIS"
 
         # 8. Experiment Cost & Information Value
         exp_cost = ExperimentCost(
@@ -168,6 +189,9 @@ class CandidateGenerationEngine:
             hardware_constraint_checks_passed=arch_supported and (not incompatible_detected) and (not missing_peripherals),
             incompatible_capabilities_detected=incompatible_detected,
             rationale=rationale,
+            hypothesis_text=hypo_text,
+            generator_source=generator_src,
+            predicted_metrics_summary=pred_summary,
             hardware_consideration=hardware_consideration,
             reversibility=transform.reversibility,
             safety_risk=transform.safety_risk,

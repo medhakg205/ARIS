@@ -52,6 +52,7 @@ import { PredictionVsRealityView } from './PredictionVsRealityView';
 import { BeforeAfterTelemetryView } from './BeforeAfterTelemetryView';
 import { OptimizationDecisionPanel } from './OptimizationDecisionPanel';
 import { ExperimentReplayAndHistory } from './ExperimentReplayAndHistory';
+import { apiAcceptOptimization } from '../../services/api';
 
 export interface OptimizationCenterProps {
   optimizations: OptimizationCandidate[];
@@ -79,6 +80,7 @@ export interface OptimizationCenterProps {
   onValidateExperiment?: (expId: string) => Promise<any>;
   onRollbackExperiment?: (expId: string) => Promise<void>;
   onRollbackOptimization?: (optId: string) => Promise<void>;
+  onStopRun?: () => Promise<void>;
 }
 
 type OptSubTab =
@@ -112,6 +114,7 @@ export const OptimizationCenter: React.FC<OptimizationCenterProps> = ({
   onValidateExperiment,
   onRollbackExperiment,
   onRollbackOptimization,
+  onStopRun,
 }) => {
   const [activeSubTab, setActiveSubTab] = useState<OptSubTab>('lifecycle');
   const [selectedOptId, setSelectedOptId] = useState<string | null>(() => {
@@ -137,6 +140,32 @@ export const OptimizationCenter: React.FC<OptimizationCenterProps> = ({
 
   // Active validation
   const activeVal = activeExp ? validations[activeExp.experiment_id] || null : null;
+
+  // Sample counting and threshold determination
+  const sampleCount = telemetryHistory.length;
+  const targetSamples = 500;
+  const isThresholdReached = sampleCount >= targetSamples;
+  const isValidationComplete =
+    Boolean(activeVal) ||
+    activeExp?.status === 'COMPLETED' ||
+    activeExp?.status === 'VALIDATED' ||
+    isThresholdReached;
+
+  // Automatically finalize validation when sample threshold is reached:
+  // 1. Stop the validation collection timer/loop.
+  // 2. Mark validation collection COMPLETE.
+  // 3. Trigger statistical validation engine to compute and persist ValidationResult.
+  React.useEffect(() => {
+    if (isThresholdReached && (activeRun?.status === 'RUNNING' || isValidating)) {
+      setIsValidating(false);
+      if (onStopRun) {
+        onStopRun().catch(() => {});
+      }
+      if (activeExp && activeExp.status !== 'COMPLETED' && onValidateExperiment) {
+        onValidateExperiment(activeExp.experiment_id).catch(() => {});
+      }
+    }
+  }, [isThresholdReached, activeRun?.status, isValidating, activeExp, onStopRun, onValidateExperiment]);
 
   // Handle run and validate candidate
   const handleValidateCandidate = async (optId: string) => {
@@ -165,8 +194,22 @@ export const OptimizationCenter: React.FC<OptimizationCenterProps> = ({
     }
   };
 
-  // Handle Accept
+  // Handle Accept & Safe Local Source Application
   const handleAcceptOptimization = async (candidateId: string): Promise<boolean> => {
+    try {
+      const res = await apiAcceptOptimization(candidateId, activeIDESketch?.path);
+      if (res.success) {
+        if (activeIDESketch?.path && onSaveIDESketch && res.active_firmware?.source_code) {
+          try {
+            await onSaveIDESketch(activeIDESketch.path, res.active_firmware.source_code);
+          } catch (_) {}
+        }
+        await onApprove(candidateId);
+        return true;
+      }
+    } catch (e) {
+      // Allow error to bubble or fall back
+    }
     const success = await onApprove(candidateId);
     return Boolean(success);
   };
@@ -183,27 +226,28 @@ export const OptimizationCenter: React.FC<OptimizationCenterProps> = ({
   return (
     <div className="h-full flex flex-col overflow-y-auto p-4 md:p-6 space-y-6 select-none bg-[var(--bg-app)]">
       {/* 1. HERO SECTION */}
-      <div className="aris-card p-6 bg-gradient-to-r from-[var(--bg-card)] via-[var(--bg-surface)] to-[var(--bg-card)] border-l-4 border-l-[var(--accent-cyan)] shadow-md">
+      <div className="aris-card p-5 space-y-4">
         <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             <div className="flex items-center gap-2.5">
-              <h1 className="text-2xl font-heading font-extrabold tracking-tight text-[var(--text-primary)]">
+              <h1 className="text-xl font-heading font-extrabold text-[var(--text-primary)]">
                 Optimization Intelligence
               </h1>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[var(--accent-cyan-bg)] text-[var(--accent-cyan)] font-bold border border-[var(--accent-cyan)]/30">
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-mono px-2.5 py-0.5 rounded-full font-semibold border bg-[var(--accent-cyan-bg)] text-[var(--accent-cyan)] border-[var(--accent-cyan)]/30">
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent-cyan)]" />
                 CLOSED-LOOP VALIDATION
               </span>
             </div>
-            <p className="text-xs text-[var(--text-secondary)] font-mono max-w-2xl leading-relaxed">
-              Analyze firmware behavior, predict multi-objective impact, validate changes on hardware, and automatically recover from regressions.
+            <p className="text-xs text-[var(--text-muted)] font-sans max-w-2xl leading-relaxed">
+              Analyze microcontroller firmware, predict multi-objective runtime impact, validate fixes on physical hardware or simulation, and safely apply local transformations.
             </p>
           </div>
 
-          <div className="flex items-center gap-2.5 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap">
             {onStartHardwareRun && (
               <button
                 onClick={onStartHardwareRun}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[var(--accent-cyan)] hover:opacity-90 text-white text-xs font-mono font-bold shadow-sm transition-all"
+                className="aris-btn-primary flex items-center gap-1.5 text-xs"
               >
                 <Play size={13} />
                 <span>Start Baseline</span>
@@ -212,7 +256,7 @@ export const OptimizationCenter: React.FC<OptimizationCenterProps> = ({
 
             <button
               onClick={() => onNavigate('issues')}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[var(--bg-card)] hover:bg-[var(--border-color)] text-[var(--text-primary)] text-xs font-mono font-semibold border border-[var(--border-color)] transition-all"
+              className="aris-btn-secondary flex items-center gap-1.5 text-xs"
             >
               <Search size={13} className="text-[var(--accent-cyan)]" />
               <span>Analyze Firmware</span>
@@ -220,7 +264,7 @@ export const OptimizationCenter: React.FC<OptimizationCenterProps> = ({
 
             <button
               onClick={() => setActiveSubTab('history')}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[var(--bg-card)] hover:bg-[var(--border-color)] text-[var(--text-primary)] text-xs font-mono font-semibold border border-[var(--border-color)] transition-all"
+              className="aris-btn-secondary flex items-center gap-1.5 text-xs"
             >
               <History size={13} className="text-[var(--accent-purple)]" />
               <span>View Experiments ({experiments.length})</span>
@@ -231,19 +275,19 @@ export const OptimizationCenter: React.FC<OptimizationCenterProps> = ({
 
       {/* 2. HARDWARE VALIDATION PENDING BANNER (When hardware is not connected) */}
       {!hardwareConnected && (
-        <div className="p-4 rounded-xl bg-[var(--accent-yellow-bg)]/60 border border-[var(--accent-yellow)]/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs font-mono">
+        <div className="p-4 rounded-xl bg-[var(--accent-yellow-bg)]/40 border border-[var(--accent-yellow)]/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs font-sans">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-[var(--accent-yellow-bg)] text-[var(--accent-yellow)] border border-[var(--accent-yellow)]/40">
+            <div className="p-2 rounded-lg bg-[var(--accent-yellow-bg)] text-[var(--accent-yellow)] border border-[var(--accent-yellow)]/40 shrink-0">
               <Usb size={18} />
             </div>
             <div>
-              <div className="font-bold text-[var(--text-primary)] flex items-center gap-2">
+              <div className="font-semibold text-[var(--text-primary)] flex items-center gap-2">
                 Hardware Validation Pending
-                <span className="text-[10px] px-1.5 py-0.2 rounded bg-[var(--accent-cyan-bg)] text-[var(--accent-cyan)] font-semibold">
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[var(--accent-amber-bg)] text-[var(--accent-amber)] border border-[var(--accent-amber)]/30 font-semibold">
                   SIMULATION ACTIVE
                 </span>
               </div>
-              <div className="text-[var(--text-muted)] text-[11px] mt-0.5">
+              <div className="text-[var(--text-muted)] text-[11px] mt-0.5 leading-relaxed">
                 Connect an Arduino Uno R3 / R4 or target board to perform hardware-in-the-loop closed-loop validation. Virtual simulation mode is currently serving telemetry.
               </div>
             </div>
@@ -253,7 +297,7 @@ export const OptimizationCenter: React.FC<OptimizationCenterProps> = ({
             <button
               onClick={handleAutoDetect}
               disabled={detectingHardware}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--bg-card)] hover:bg-[var(--border-color)] text-[var(--text-primary)] text-xs font-semibold border border-[var(--accent-yellow)]/40 shrink-0 transition-all"
+              className="aris-btn-secondary flex items-center gap-1.5 text-xs shrink-0"
             >
               <RefreshCw size={12} className={detectingHardware ? 'animate-spin' : ''} />
               <span>{detectingHardware ? 'Scanning Ports...' : 'Auto Detect Hardware'}</span>
@@ -263,37 +307,37 @@ export const OptimizationCenter: React.FC<OptimizationCenterProps> = ({
       )}
 
       {/* 3. SUB-NAVIGATION TABS */}
-      <div className="flex items-center gap-2 border-b border-[var(--border-color)] pb-2 overflow-x-auto text-xs font-mono">
+      <div className="flex items-center gap-1.5 border-b border-[var(--border-color)] pb-2 overflow-x-auto text-xs font-sans shrink-0">
         <button
           onClick={() => setActiveSubTab('lifecycle')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg whitespace-nowrap shrink-0 transition-colors ${
             activeSubTab === 'lifecycle'
-              ? 'bg-[var(--accent-cyan)] text-white font-bold shadow-sm'
-              : 'text-[var(--text-secondary)] hover:bg-[var(--bg-card)]'
+              ? 'bg-[var(--accent-cyan-bg)] text-[var(--accent-cyan)] font-semibold border border-[var(--accent-cyan)]/30'
+              : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface)]'
           }`}
         >
           <Activity size={13} />
-          <span>Pipeline & Live Validation</span>
+          <span>Pipeline &amp; Live Validation</span>
         </button>
 
         <button
           onClick={() => setActiveSubTab('candidates')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg whitespace-nowrap shrink-0 transition-colors ${
             activeSubTab === 'candidates'
-              ? 'bg-[var(--accent-cyan)] text-white font-bold shadow-sm'
-              : 'text-[var(--text-secondary)] hover:bg-[var(--bg-card)]'
+              ? 'bg-[var(--accent-cyan-bg)] text-[var(--accent-cyan)] font-semibold border border-[var(--accent-cyan)]/30'
+              : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface)]'
           }`}
         >
           <Zap size={13} />
-          <span>Candidates & Code Diff ({optimizations.length})</span>
+          <span>Candidates &amp; Code Diff ({optimizations.length})</span>
         </button>
 
         <button
           onClick={() => setActiveSubTab('prediction')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg whitespace-nowrap shrink-0 transition-colors ${
             activeSubTab === 'prediction'
-              ? 'bg-[var(--accent-cyan)] text-white font-bold shadow-sm'
-              : 'text-[var(--text-secondary)] hover:bg-[var(--bg-card)]'
+              ? 'bg-[var(--accent-cyan-bg)] text-[var(--accent-cyan)] font-semibold border border-[var(--accent-cyan)]/30'
+              : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface)]'
           }`}
         >
           <Sliders size={13} />
@@ -302,10 +346,10 @@ export const OptimizationCenter: React.FC<OptimizationCenterProps> = ({
 
         <button
           onClick={() => setActiveSubTab('telemetry')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg whitespace-nowrap shrink-0 transition-colors ${
             activeSubTab === 'telemetry'
-              ? 'bg-[var(--accent-cyan)] text-white font-bold shadow-sm'
-              : 'text-[var(--text-secondary)] hover:bg-[var(--bg-card)]'
+              ? 'bg-[var(--accent-cyan-bg)] text-[var(--accent-cyan)] font-semibold border border-[var(--accent-cyan)]/30'
+              : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface)]'
           }`}
         >
           <BarChart3 size={13} />
@@ -314,14 +358,14 @@ export const OptimizationCenter: React.FC<OptimizationCenterProps> = ({
 
         <button
           onClick={() => setActiveSubTab('history')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg whitespace-nowrap shrink-0 transition-colors ${
             activeSubTab === 'history'
-              ? 'bg-[var(--accent-cyan)] text-white font-bold shadow-sm'
-              : 'text-[var(--text-secondary)] hover:bg-[var(--bg-card)]'
+              ? 'bg-[var(--accent-cyan-bg)] text-[var(--accent-cyan)] font-semibold border border-[var(--accent-cyan)]/30'
+              : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface)]'
           }`}
         >
           <History size={13} />
-          <span>Replay & History ({experiments.length})</span>
+          <span>Replay &amp; History ({experiments.length})</span>
         </button>
       </div>
 
@@ -337,9 +381,9 @@ export const OptimizationCenter: React.FC<OptimizationCenterProps> = ({
             activeCandidate={selectedOpt}
             activeExperiment={activeExp}
             validationResult={activeVal}
-            isValidating={isValidating || activeRun?.status === 'RUNNING'}
-            validationProgressPct={telemetryHistory.length > 0 ? Math.min(100, Math.round((telemetryHistory.length / 500) * 100)) : 0}
-            sampleCount={telemetryHistory.length}
+            isValidating={!isValidationComplete && (isValidating || activeRun?.status === 'RUNNING')}
+            validationProgressPct={isValidationComplete ? 100 : (sampleCount > 0 ? Math.min(100, Math.round((sampleCount / targetSamples) * 100)) : 0)}
+            sampleCount={sampleCount}
             hardwareConnected={hardwareConnected}
             isDemo={isDemo}
             onSelectStage={(stage) => {
@@ -349,16 +393,18 @@ export const OptimizationCenter: React.FC<OptimizationCenterProps> = ({
             }}
           />
 
-          {/* Live Validation Monitor during run or when active */}
-          {(isValidating || activeRun?.status === 'RUNNING' || activeExp?.status === 'RUNNING') && (
+          {/* Live Validation Monitor during run or when active / completed */}
+          {(isValidating || activeRun?.status === 'RUNNING' || activeExp?.status === 'RUNNING' || isValidationComplete) && (
             <LiveValidationMonitor
-              isValidating={true}
-              progressPct={telemetryHistory.length > 0 ? Math.min(100, Math.round((telemetryHistory.length / 500) * 100)) : 0}
-              currentSamples={telemetryHistory.length}
-              targetSamples={500}
+              isValidating={!isValidationComplete && (isValidating || activeRun?.status === 'RUNNING')}
+              isComplete={isValidationComplete}
+              progressPct={isValidationComplete ? 100 : (sampleCount > 0 ? Math.min(100, Math.round((sampleCount / targetSamples) * 100)) : 0)}
+              currentSamples={isValidationComplete ? Math.min(targetSamples, Math.max(targetSamples, sampleCount)) : sampleCount}
+              targetSamples={targetSamples}
               latestSamples={latestSamples}
               isDemo={isDemo}
               hardwareConnected={hardwareConnected}
+              validationResult={activeVal}
             />
           )}
 
@@ -375,6 +421,7 @@ export const OptimizationCenter: React.FC<OptimizationCenterProps> = ({
               validationResult={activeVal}
               onAccept={handleAcceptOptimization}
               onRollback={handleRollback}
+              activeSketchPath={activeIDESketch?.path}
               loading={loading}
             />
           </div>

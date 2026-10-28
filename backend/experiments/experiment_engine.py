@@ -247,8 +247,11 @@ class ExperimentEngine:
         1. Transitions experiment status to ROLLED_BACK.
         2. Transitions candidate run status to ROLLED_BACK (if exists).
         3. Transitions optimization candidate status to ROLLED_BACK.
-        Returns a rollback confirmation payload.
+        4. Demotes candidate firmware and restores parent/baseline firmware as ACTIVE.
+        5. Restores original source from backup if candidate was applied to disk.
+        Preserves historical experiment evidence and validation result records.
         """
+        import os
         exp = self.get_experiment(experiment_id)
         exp.status = "ROLLED_BACK"
         self.db.save_experiment(exp)
@@ -261,8 +264,43 @@ class ExperimentEngine:
                 self.db.save_run(cand_run)
 
         opt = self.db.get_optimization(exp.optimization_id)
+        restored_disk = False
         if opt:
             opt.status = "ROLLED_BACK"
+
+            # Demote candidate firmware
+            accepted_fw = self.db.get_firmware(f"FW-ACCEPTED-{opt.optimization_id}")
+            if accepted_fw:
+                accepted_fw.status = "ROLLED_BACK"
+                self.db.save_firmware(accepted_fw)
+
+            # Restore parent/baseline firmware as ACTIVE
+            if opt.parent_firmware_id:
+                parent_fw = self.db.get_firmware(opt.parent_firmware_id)
+                if parent_fw:
+                    parent_fw.status = "ACTIVE"
+                    self.db.save_firmware(parent_fw)
+
+            # Restore applied source if backup exists
+            if opt.applied and opt.backup_path and os.path.exists(opt.backup_path):
+                try:
+                    target_file = opt.source_location.get("file") if opt.source_location else None
+                    if not target_file or not os.path.exists(target_file):
+                        from backend.api.routes_firmware import _discover_arduino_ide_sketches
+                        sketches = _discover_arduino_ide_sketches()
+                        if sketches and os.path.exists(sketches[0]["path"]):
+                            target_file = sketches[0]["path"]
+
+                    if target_file and os.path.exists(target_file):
+                        with open(opt.backup_path, "r", encoding="utf-8") as bf:
+                            backup_code = bf.read()
+                        with open(target_file, "w", encoding="utf-8") as tf:
+                            tf.write(backup_code)
+                        opt.applied = False
+                        restored_disk = True
+                except Exception:
+                    pass
+
             self.db.save_optimization(opt)
 
         return {
@@ -270,6 +308,7 @@ class ExperimentEngine:
             "experiment_id": experiment_id,
             "candidate_run_id": exp.candidate_run_id,
             "optimization_id": exp.optimization_id,
+            "restored_disk_source": restored_disk,
             "message": f"Successfully rolled back experiment '{experiment_id}' and restored baseline configuration."
         }
 

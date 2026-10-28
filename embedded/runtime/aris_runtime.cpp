@@ -64,6 +64,7 @@ void ArisRuntime::init(
 
 #if defined(ARDUINO)
     Serial.begin(baud_rate);
+    send_handshake_ack();
 #endif
 
     last_epoch_ms = millis();
@@ -129,6 +130,7 @@ void ArisRuntime::send_handshake_ack() {
     );
 
 #if defined(ARDUINO)
+    Serial.print(F("\r\n"));
     Serial.println(transmit_buffer);
 #endif
 }

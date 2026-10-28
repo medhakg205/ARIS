@@ -19,6 +19,7 @@ import logging
 from typing import Dict, Any, Optional
 
 from backend.firmware.board_profiles import get_board_profile, BoardProfile
+from backend.firmware.preflight_analyzer import PreflightMemoryAnalyzer
 from backend.serial.serial_discovery import find_arduino_cli_path
 from backend.telemetry.telemetry_schema import ArisException
 
@@ -138,6 +139,19 @@ class BuildFlasher:
                             pass
 
                     if proc.returncode != 0:
+                        parsed_sizes = PreflightMemoryAnalyzer.parse_arduino_cli_size_output(
+                            stdout_text=proc.stdout,
+                            stderr_text=proc.stderr,
+                            stdout_json=stdout_json
+                        )
+                        eff_max_flash, eff_max_sram = PreflightMemoryAnalyzer.get_board_effective_limits(profile)
+                        flash_bytes = parsed_sizes.get("flash_bytes")
+                        sram_bytes = parsed_sizes.get("sram_bytes")
+                        max_flash = parsed_sizes.get("max_flash_bytes") or eff_max_flash
+                        max_sram = parsed_sizes.get("max_sram_bytes") or eff_max_sram
+                        overflow_flash = parsed_sizes.get("overflow_flash_bytes")
+                        overflow_sram = parsed_sizes.get("overflow_sram_bytes")
+
                         diag_msgs = []
                         if stdout_json:
                             builder_res = stdout_json.get("builder_result", {})
@@ -145,6 +159,88 @@ class BuildFlasher:
                             for d in diags:
                                 diag_msgs.append(f"Line {d.get('line', '?')}: {d.get('message', '')}")
                         err_text = "\n".join(diag_msgs) if diag_msgs else (proc.stderr.strip() or stdout_json.get("error", "Compilation failed"))
+
+                        # 1. Check for Flash Overflow
+                        is_flash_overflow = (
+                            (flash_bytes and flash_bytes > max_flash) or
+                            overflow_flash is not None or
+                            "text section exceeds available space" in err_text.lower()
+                        )
+                        if is_flash_overflow:
+                            over_b = overflow_flash if overflow_flash is not None else ((flash_bytes - max_flash) if (flash_bytes and max_flash) else 0)
+                            flash_str = f"{flash_bytes:,} bytes" if flash_bytes else "Unknown"
+                            limit_str = f"{max_flash:,} bytes"
+                            over_str = f" (overflows by {over_b:,} bytes)" if over_b else ""
+                            msg = (
+                                f"Instrumentation exceeds {profile.display_name} flash capacity. "
+                                f"Firmware size: {flash_str}. "
+                                f"Available sketch limit: {limit_str}{over_str}. "
+                                f"The original sketch was not modified and no firmware was uploaded."
+                            )
+                            raise ArisException(
+                                error_code="ARIS_INSTRUMENTATION_FLASH_OVERFLOW",
+                                message=msg,
+                                details={
+                                    "board_id": board_id,
+                                    "board_name": profile.display_name,
+                                    "overflow_type": "FLASH",
+                                    "instrumented_flash_bytes": flash_bytes,
+                                    "max_flash_bytes": max_flash,
+                                    "overflow_bytes": over_b,
+                                    "instrumented_sram_bytes": sram_bytes,
+                                    "max_sram_bytes": max_sram,
+                                    "suggested_actions": [
+                                        "Enable LEAN instrumentation profile (focuses on loop latency, CPU load, and SRAM headroom).",
+                                        "Target a higher-capacity board (e.g., Arduino Mega 2560 with 256 KB Flash or Arduino Uno R4 / ESP32).",
+                                        "Optimize sketch graphic assets, fonts, or library buffers."
+                                    ],
+                                    "original_source_preserved": True,
+                                    "uploaded": False
+                                },
+                                recoverable=True,
+                                status_code=400
+                            )
+
+                        # 2. Check for SRAM Overflow
+                        is_sram_overflow = (
+                            (sram_bytes and sram_bytes > max_sram) or
+                            overflow_sram is not None or
+                            "data section exceeds available space" in err_text.lower()
+                        )
+                        if is_sram_overflow:
+                            over_b = overflow_sram if overflow_sram is not None else ((sram_bytes - max_sram) if (sram_bytes and max_sram) else 0)
+                            sram_str = f"{sram_bytes:,} bytes" if sram_bytes else "Unknown"
+                            limit_str = f"{max_sram:,} bytes"
+                            msg = (
+                                f"Instrumentation exceeds {profile.display_name} static SRAM capacity. "
+                                f"Static SRAM required: {sram_str}. "
+                                f"Available SRAM limit: {limit_str}. "
+                                f"Note: Static SRAM reports do not include runtime stack or dynamic heap allocations. "
+                                f"The original sketch was not modified and no firmware was uploaded."
+                            )
+                            raise ArisException(
+                                error_code="ARIS_INSTRUMENTATION_SRAM_OVERFLOW",
+                                message=msg,
+                                details={
+                                    "board_id": board_id,
+                                    "board_name": profile.display_name,
+                                    "overflow_type": "SRAM",
+                                    "instrumented_sram_bytes": sram_bytes,
+                                    "max_sram_bytes": max_sram,
+                                    "overflow_bytes": over_b,
+                                    "suggested_actions": [
+                                        "Enable LEAN instrumentation profile to reduce buffer sizes.",
+                                        "Target a microcontroller with more SRAM (e.g., Arduino Mega 2560 with 8 KB SRAM).",
+                                        "Reduce global variable allocations in the sketch."
+                                    ],
+                                    "original_source_preserved": True,
+                                    "uploaded": False
+                                },
+                                recoverable=True,
+                                status_code=400
+                            )
+
+                        # 3. Generic compilation failure
                         raise ArisException(
                             error_code="ARIS_BUILD_FAILED",
                             message=f"Firmware compilation failed on {profile.display_name}: {err_text}",
@@ -325,16 +421,20 @@ class BuildFlasher:
             )
 
         # Real hardware flashing via arduino-cli upload
-        # CRITICAL SERIAL OWNERSHIP: Release active serial connection before flashing
+        # CRITICAL SERIAL OWNERSHIP & CONCURRENCY: Acquire deployment lock & release serial before flashing
+        serial_mgr = None
         try:
             from backend.api.dependencies import get_serial_mgr
             serial_mgr = get_serial_mgr()
-            if serial_mgr.connected and (serial_mgr.current_port == port or not port):
-                logger.info(f"Releasing serial port {serial_mgr.current_port} prior to flashing.")
-                serial_mgr.disconnect()
-                time.sleep(0.5)
+            if hasattr(serial_mgr, "begin_deployment"):
+                serial_mgr.begin_deployment(port)
+            if hasattr(serial_mgr, "release_serial"):
+                serial_mgr.release_serial(port=port, wait_ms=600)
+            logger.info(f"Deployment lock acquired and serial released on {port}.")
+        except ArisException:
+            raise
         except Exception as e:
-            logger.warning(f"Error disconnecting serial prior to flash: {e}")
+            logger.warning(f"Error locking deployment/releasing serial prior to flash: {e}")
 
         try:
             with tempfile.TemporaryDirectory() as td:
@@ -351,7 +451,7 @@ class BuildFlasher:
                     raise ArisException(
                         error_code="ARIS_FLASH_FAILED",
                         message="Cannot flash target board: no source code or compiled binary provided.",
-                        details={"board_id": board_id, "port": port},
+                        details={"board_id": board_id, "port": port, "failure_category": "CONFIGURATION_ERROR"},
                         recoverable=True,
                         status_code=400
                     )
@@ -376,21 +476,119 @@ class BuildFlasher:
                 )
 
                 if proc.returncode != 0:
-                    err_msg = proc.stderr.strip() or proc.stdout.strip() or "Programmer failed to upload binary"
+                    raw_stderr = proc.stderr.strip()
+                    raw_stdout = proc.stdout.strip()
+                    err_text = raw_stderr
+
+                    # Extract inner error message if formatted as JSON
+                    try:
+                        parsed_json = json.loads(raw_stdout or raw_stderr)
+                        if isinstance(parsed_json, dict):
+                            inner_out = parsed_json.get("output", {})
+                            if isinstance(inner_out, dict):
+                                err_text = inner_out.get("stderr", "") or inner_out.get("stdout", "") or parsed_json.get("error", "")
+                            else:
+                                err_text = parsed_json.get("error", "") or raw_stderr
+                    except Exception:
+                        pass
+
+                    clean_output = f"{err_text}\n{raw_stderr}".strip() if err_text != raw_stderr else err_text
+                    if not clean_output:
+                        clean_output = raw_stdout or "Unknown programmer error"
+
+                    lower_err = clean_output.lower()
+                    if any(p in lower_err for p in ("access is denied", "cannot open port", "unable to open port", "permission denied", "resource busy", "device busy")):
+                        cat = "PORT_ACCESS_DENIED"
+                        summary = f"Port {port} cannot be opened. The serial port is currently in use or access was denied."
+                        guidance = [
+                            f"Close the Arduino IDE Serial Monitor, Serial Plotter, or any open terminal (PuTTY, VS Code) using {port}.",
+                            f"Close any 3D printer host or slicer software (Cura, PrusaSlicer) that automatically polls COM ports.",
+                            f"Unplug the USB cable from {port}, wait 3 seconds, reconnect it, and click 'Deploy & Run' again."
+                        ]
+                    elif any(p in lower_err for p in ("not in sync", "programmer is not responding", "stk500_recv", "stk500_getsync", "resp=0x00")):
+                        cat = "BOOTLOADER_UNRESPONSIVE"
+                        summary = f"The microcontroller on {port} did not respond to the bootloader synchronization request (resp=0x00)."
+                        guidance = [
+                            f"Press the physical RESET button on the {profile.display_name} right as the upload begins to trigger the bootloader.",
+                            "Ensure the USB cable is a full data cable (not charge-only).",
+                            "Disconnect any shields, modules, or wires connected to digital pins 0 (RX) and 1 (TX), as active signals on UART pins block programmer synchronization.",
+                            "If using an Arduino Uno clone or Nano, check if an older bootloader (57,600 baud) is required."
+                        ]
+                    elif any(p in lower_err for p in ("no such file or directory", "device not found", "could not find port", "no device found")):
+                        cat = "DEVICE_DISCONNECTED"
+                        summary = f"Microcontroller on {port} was disconnected or disappeared from the operating system."
+                        guidance = [
+                            "Verify the physical USB connection to the board.",
+                            "Check Windows Device Manager to confirm which COM port is assigned to the Arduino."
+                        ]
+                    elif any(p in lower_err for p in ("device signature", "expected signature", "invalid device signature")):
+                        cat = "BOARD_MISMATCH"
+                        summary = f"Target device on {port} returned an unexpected processor signature for {profile.mcu}."
+                        guidance = [
+                            f"Verify whether the connected board is genuinely an {profile.display_name} or another model (e.g. Nano, Mega 2560).",
+                            "Select the matching board profile in the ARIS Board Selector."
+                        ]
+                    else:
+                        cat = "UNKNOWN_ERROR"
+                        summary = f"Firmware upload to {profile.display_name} on {port} failed (exit code {proc.returncode})."
+                        guidance = [
+                            "Inspect the programmer output below for detailed diagnostics.",
+                            "Verify board selection and serial port settings."
+                        ]
+
+                    title = f"Upload failed — {profile.display_name} on {port}"
                     raise ArisException(
                         error_code="ARIS_FLASH_FAILED",
-                        message=f"Upload to {profile.display_name} on {port} failed: {err_msg}",
-                        details={"board_id": board_id, "port": port, "error": err_msg},
+                        message=summary,
+                        details={
+                            "board_id": board_id,
+                            "board_display_name": profile.display_name,
+                            "port": port,
+                            "failure_category": cat,
+                            "title": title,
+                            "error_summary": summary,
+                            "guidance": guidance,
+                            "command": " ".join(cmd),
+                            "exit_code": proc.returncode,
+                            "raw_output": clean_output,
+                            "firmware_uploaded": False,
+                            "compilation_succeeded": True
+                        },
                         recoverable=True,
                         status_code=500
                     )
+
+                # Physical upload completed via programmer.
+                # End deployment mode immediately so the serial manager can acquire the port for verification and telemetry.
+                if serial_mgr:
+                    try:
+                        serial_mgr.end_deployment(port)
+                    except Exception:
+                        pass
 
                 verified = self.verify_upload(board_id=board_id, port=port)
                 if not verified:
                     raise ArisException(
                         error_code="ARIS_FLASH_UNVERIFIED",
                         message=f"Uploaded firmware failed ARIS runtime handshake verification on target {port}.",
-                        details={"board_id": board_id, "port": port},
+                        details={
+                            "board_id": board_id,
+                            "board_display_name": profile.display_name,
+                            "port": port,
+                            "failure_category": "HANDSHAKE_TIMEOUT",
+                            "title": f"Upload unverified — {profile.display_name} on {port}",
+                            "error_summary": "Firmware was flashed, but runtime telemetry handshake could not be confirmed.",
+                            "guidance": [
+                                "Verify baud rate is 115,200 baud.",
+                                "Check if sketch setup() initializes Serial at 115,200 baud.",
+                                "Click 'Retry Handshake' to query the target again without re-flashing."
+                            ],
+                            "firmware_uploaded": True,
+                            "compilation_succeeded": True,
+                            "upload_succeeded": True,
+                            "handshake_verified": False,
+                            "telemetry_active": False
+                        },
                         recoverable=True,
                         status_code=500
                     )
@@ -407,15 +605,41 @@ class BuildFlasher:
                     "message": f"Successfully flashed firmware to physical {profile.display_name} on {port}."
                 }
         except subprocess.TimeoutExpired:
+            cat = "UPLOAD_TIMEOUT"
+            summary = f"Flashing timed out after 60 seconds on {port}."
+            title = f"Upload failed — {profile.display_name} on {port} (Timeout)"
+            guidance = [
+                "Unplug and reconnect the Arduino board.",
+                "Try pressing the RESET button before uploading."
+            ]
             raise ArisException(
                 error_code="ARIS_FLASH_FAILED",
-                message=f"Flashing timed out after 60 seconds on {port}.",
-                details={"board_id": board_id, "port": port},
+                message=summary,
+                details={
+                    "board_id": board_id,
+                    "board_display_name": profile.display_name,
+                    "port": port,
+                    "failure_category": cat,
+                    "title": title,
+                    "error_summary": summary,
+                    "guidance": guidance,
+                    "command": f"{self.arduino_cli_path} upload -p {port} --fqbn {profile.fqbn}",
+                    "exit_code": -1,
+                    "raw_output": "Process timed out after 60 seconds waiting for programmer response.",
+                    "firmware_uploaded": False,
+                    "compilation_succeeded": True
+                },
                 recoverable=True,
                 status_code=500
             )
+        finally:
+            if serial_mgr:
+                try:
+                    serial_mgr.end_deployment(port)
+                except Exception:
+                    pass
 
-    def verify_upload(self, board_id: str, port: str, timeout_sec: float = 3.0) -> bool:
+    def verify_upload(self, board_id: str, port: str, timeout_sec: float = 5.0) -> bool:
         """
         Verifies that the uploaded firmware is intact on the target microcontroller.
         Note: AVR microcontrollers via Arduino bootloader / avrdude do not support
@@ -434,11 +658,12 @@ class BuildFlasher:
         try:
             from backend.api.dependencies import get_serial_mgr
             serial_mgr = get_serial_mgr()
-            # Give target MCU a moment to reset after bootloader finishes flashing (DTR pulse reset)
-            time.sleep(1.5)
             # Ensure serial manager connects to the target port
             if not serial_mgr.connected or serial_mgr.current_port != port:
-                serial_mgr.connect(port=port, baud_rate=115200)
+                serial_mgr.connect(port=port, baud_rate=115200, force=True)
+
+            # Settle period for Optiboot bootloader (1.0 - 1.5s) and sketch setup()
+            time.sleep(1.2)
 
             res = serial_mgr.perform_handshake(timeout_sec=timeout_sec)
             return bool(res.get("handshake_success"))

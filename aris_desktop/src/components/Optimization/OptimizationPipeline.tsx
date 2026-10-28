@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
   Cpu, FileCode2, BarChart3, Search, Zap, TrendingDown,
   Hammer, UploadCloud, Activity, Scale, CheckCircle2, AlertTriangle,
-  ChevronDown, ChevronUp, Check, X, ShieldAlert, Sparkles
+  ChevronDown, ChevronUp, Check, X, ShieldAlert
 } from 'lucide-react';
 import type { BoardProfile, FirmwareRecord, OptimizationCandidate, ExperimentRecord, ValidationResult } from '../../types';
 
@@ -58,12 +58,12 @@ export const OptimizationPipeline: React.FC<OptimizationPipelineProps> = ({
   const isAnalysisReady = Boolean(activeCandidate);
   const isOptimizationReady = Boolean(activeCandidate);
   const isPredictionReady = Boolean(activeCandidate?.expected_effect);
-  const isBuildReady = Boolean(activeExperiment) || Boolean(activeCandidate?.status === 'APPROVED');
+  const isBuildReady = Boolean(activeExperiment) || Boolean(activeCandidate?.status === 'APPROVED') || Boolean(activeCandidate?.applied || activeCandidate?.status === 'ACCEPTED');
   const isFlashReady = Boolean(activeExperiment) || isBuildReady;
-  const isValidationRunning = isValidating;
-  const isValidationComplete = Boolean(validationResult) || activeExperiment?.status === 'COMPLETED' || activeExperiment?.status === 'VALIDATED';
-  const isComparisonReady = Boolean(validationResult?.metrics);
-  const isDecisionMade = activeExperiment?.status === 'VALIDATED' || activeExperiment?.status === 'ROLLED_BACK' || activeCandidate?.status === 'VALIDATED' || activeCandidate?.status === 'ROLLED_BACK';
+  const isValidationComplete = Boolean(validationResult) || activeExperiment?.status === 'COMPLETED' || activeExperiment?.status === 'VALIDATED' || sampleCount >= 500;
+  const isValidationRunning = isValidating && !isValidationComplete;
+  const isComparisonReady = Boolean(validationResult?.metrics) || isValidationComplete;
+  const isDecisionMade = Boolean(validationResult) || activeExperiment?.status === 'VALIDATED' || activeExperiment?.status === 'ROLLED_BACK' || activeCandidate?.status === 'VALIDATED' || activeCandidate?.status === 'ROLLED_BACK' || activeCandidate?.applied || activeCandidate?.status === 'ACCEPTED' || isValidationComplete;
   const expectedEffect = (activeCandidate?.expected_effect as Record<string, any>) || null;
 
   const stages: PipelineStageInfo[] = [
@@ -233,16 +233,16 @@ export const OptimizationPipeline: React.FC<OptimizationPipelineProps> = ({
       stepNumber: '09',
       name: 'Validate',
       label: 'Real Telemetry',
-      statusText: isValidationRunning ? 'COLLECTING' : isValidationComplete ? 'VALIDATED' : 'STANDBY',
+      statusText: isValidationRunning ? 'COLLECTING' : isValidationComplete ? 'COMPLETE' : 'STANDBY',
       status: isValidationRunning ? 'active' : isValidationComplete ? 'completed' : 'pending',
-      icon: Activity,
-      primaryMetric: isValidationRunning ? `${Math.round(validationProgressPct)}%` : isValidationComplete ? `${sampleCount} samples` : 'Standby',
+      icon: isValidationComplete ? CheckCircle2 : Activity,
+      primaryMetric: isValidationRunning ? `${Math.round(validationProgressPct)}%` : isValidationComplete ? `${Math.min(500, sampleCount)} samples` : 'Standby',
       detail: {
         title: 'Empirical Runtime Validation',
         description: 'Post-flash telemetry stream capturing identical test workload.',
         data: {
           'Validation Status': isValidationRunning ? 'Streaming Telemetry' : isValidationComplete ? 'Complete' : 'Pending',
-          'Sample Collection': `${sampleCount} frames`,
+          'Sample Collection': `${Math.min(500, sampleCount)} frames`,
           'Verification Gate': 'Statistical Hypothesis T-Test',
         },
       },
@@ -252,10 +252,10 @@ export const OptimizationPipeline: React.FC<OptimizationPipelineProps> = ({
       stepNumber: '10',
       name: 'Compare',
       label: 'Pred vs Actual',
-      statusText: isComparisonReady ? 'COMPARED' : 'PENDING',
+      statusText: isComparisonReady ? 'COMPLETE' : 'PENDING',
       status: isComparisonReady ? 'completed' : 'pending',
-      icon: Scale,
-      primaryMetric: isComparisonReady ? 'Empirical' : 'Pending',
+      icon: isComparisonReady ? CheckCircle2 : Scale,
+      primaryMetric: isComparisonReady ? 'Empirical Delta' : 'Pending',
       detail: {
         title: 'Prediction vs Reality Matrix',
         description: 'Empirical comparison quantifying model prediction precision against hardware truth.',
@@ -272,7 +272,7 @@ export const OptimizationPipeline: React.FC<OptimizationPipelineProps> = ({
       stepNumber: '11',
       name: 'Decision',
       label: 'Accept / Rollback',
-      statusText: isDecisionMade ? (activeExperiment?.status === 'ROLLED_BACK' ? 'ROLLED BACK' : 'ACCEPTED') : 'PENDING',
+      statusText: isDecisionMade ? (activeExperiment?.status === 'ROLLED_BACK' ? 'ROLLED BACK' : activeCandidate?.applied || activeCandidate?.status === 'ACCEPTED' || activeCandidate?.status === 'VALIDATED' ? 'ACCEPTED' : 'READY') : 'PENDING',
       status: isDecisionMade ? (activeExperiment?.status === 'ROLLED_BACK' ? 'failed' : 'completed') : 'pending',
       icon: isDecisionMade && activeExperiment?.status === 'ROLLED_BACK' ? ShieldAlert : CheckCircle2,
       primaryMetric: isDecisionMade ? (activeExperiment?.status === 'ROLLED_BACK' ? 'Restored' : 'Approved') : 'Awaiting',
@@ -299,7 +299,7 @@ export const OptimizationPipeline: React.FC<OptimizationPipelineProps> = ({
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border-color)] pb-3">
         <div className="flex items-center gap-2">
           <div className="p-1.5 rounded-lg bg-[var(--accent-cyan-bg)] text-[var(--accent-cyan)]">
-            <Sparkles size={16} />
+            <Activity size={16} />
           </div>
           <div>
             <h3 className="font-heading font-bold text-sm text-[var(--text-primary)]">

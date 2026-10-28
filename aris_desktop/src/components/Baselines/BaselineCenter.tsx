@@ -138,6 +138,37 @@ export const BaselineCenter: React.FC<BaselineCenterProps> = ({
         </div>
       </div>
 
+      {/* Baseline Provenance & Traceability Banner */}
+      <div className="aris-card p-3.5 bg-[var(--bg-card)] border border-[var(--border-color)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs font-mono">
+        <div className="flex items-center gap-2.5">
+          <div className="p-1.5 rounded-lg bg-[var(--bg-surface)] text-[var(--accent-cyan)] border border-[var(--border-color)]">
+            <Layers size={15} />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-[var(--text-primary)]">
+                {activeRun?.baseline_id ? `Baseline: ${activeRun.baseline_id}` : 'Reference Baseline: EXP-PHYS-001 (Historical)'}
+              </span>
+              <span
+                className={`text-[9px] px-1.5 py-0.2 rounded font-bold border ${
+                  activeRun?.baseline_id
+                    ? 'bg-[var(--accent-cyan-bg)] text-[var(--accent-cyan)] border-[var(--accent-cyan)]/30'
+                    : 'bg-[var(--bg-surface)] text-[var(--text-muted)] border-[var(--border-color)]'
+                }`}
+              >
+                {activeRun?.baseline_id ? 'SESSION GENERATED' : 'HISTORICAL / UNVERIFIED'}
+              </span>
+            </div>
+            <div className="text-[11px] text-[var(--text-muted)] mt-0.5">
+              Origin: {activeRun ? `Run ${activeRun.run_id}` : 'EXP-PHYS-001 Hardware Benchmark'} · Target: {selectedBoard?.display_name || activeRun?.board_id || 'ATmega328P (COM4)'} · Mode: {isDemo || activeRun?.is_demo ? 'SIMULATION' : hardwareConnected ? 'PHYSICAL HARDWARE' : 'HISTORICAL PHYSICAL RECORD'}
+            </div>
+          </div>
+        </div>
+        <div className="text-[11px] font-mono text-[var(--text-muted)] shrink-0">
+          Source: {activeRun?.firmware_id || 'test.ino (Physical Baseline)'}
+        </div>
+      </div>
+
       {/* Metric Selector Tabs */}
       <div className="flex border-b border-[var(--border-color)] gap-2 text-xs font-mono">
         {['loop_time', 'cpu_load', 'sram_used'].map((m) => (

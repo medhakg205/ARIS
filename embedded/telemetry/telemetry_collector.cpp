@@ -75,6 +75,16 @@ bool TelemetryCollector::collect_sample(ArisMetricType metric, uint32_t now_ms, 
             out_sample->value = manager->get_interrupt_probe().get_interrupt_rate_hz(epoch_ms);
             break;
 
+#if defined(ARIS_LEAN_PROFILE)
+        case ARIS_METRIC_GPIO_ACTIVITY:
+        case ARIS_METRIC_ADC_ACTIVITY:
+        case ARIS_METRIC_UART_ACTIVITY:
+        case ARIS_METRIC_SPI_ACTIVITY:
+        case ARIS_METRIC_I2C_ACTIVITY:
+        case ARIS_METRIC_TIMER_ACTIVITY:
+            out_sample->value = 0.0f;
+            return false;
+#else
         case ARIS_METRIC_GPIO_ACTIVITY:
             out_sample->value = (float)manager->get_peripheral_probe().get_gpio_activity();
             break;
@@ -98,6 +108,7 @@ bool TelemetryCollector::collect_sample(ArisMetricType metric, uint32_t now_ms, 
         case ARIS_METRIC_TIMER_ACTIVITY:
             out_sample->value = (float)manager->get_peripheral_probe().get_timer_activity();
             break;
+#endif
 
         case ARIS_METRIC_RESET_EVENT:
             out_sample->value = (float)(adapter ? adapter->get_reset_flags() : 0);

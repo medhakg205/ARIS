@@ -11,6 +11,13 @@ __pycache__/
 .vscode/
 .idea/
 *.db
+*.db-shm
+*.db-wal
+*.log
+backend_supervisor.log
+*.zip
+.DS_Store
+Thumbs.db
 build_artifacts/
 dist/
 aris_desktop/dist/

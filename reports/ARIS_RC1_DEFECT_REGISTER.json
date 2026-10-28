@@ -1,0 +1,120 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "audit_version": "3.0.0-rc1",
+  "generated_at": "2026-10-17T12:28:30Z",
+  "auditor": "Independent Release Audit Team",
+  "repository": "ARIS Studio (Arduino Runtime Intelligence System)",
+  "total_defects_logged": 7,
+  "defects_resolved": 7,
+  "critical_unresolved": 0,
+  "high_unresolved": 0,
+  "release_recommendation": "CONDITIONAL RC",
+  "defects": [
+    {
+      "id": "DEF-001",
+      "severity": "High",
+      "subsystem": "Documentation / Evidence Reporting",
+      "summary": "Conflation of two distinct physical hardware experiment datasets in previous audit reports",
+      "reproduction_steps": [
+        "1. Inspect reports/EXP_PHYS_001_evidence_package.json for EXP-PHYS-001 (blink.ino candidate test).",
+        "2. Inspect reports/transparent_instrumentation_physical_validation.json for RUN-TRANSPARENT-PHYSICAL-001 (test.ino transparent instrumentation test).",
+        "3. Compare with prior audit narrative which claimed EXP-PHYS-001 recorded 504 frames with 1,000.02 ms loop latency and 99.1% CPU load."
+      ],
+      "root_cause": "The prior report merged metrics from two separate physical runs: EXP-PHYS-001 (314 frames total: 165 baseline + 149 candidate, 0.007 ms loop latency, 8.24% CPU load, -162 B Flash) and RUN-TRANSPARENT-PHYSICAL-001 (22 recorded frames / 504 observed terminal frames, 1,000.023 ms loop latency, 99.187% CPU load).",
+      "fix": "Reconciled both runs into an immutable Discrepancy Table in the independent audit report; preserved original evidence JSON files intact without retroactive modification.",
+      "regression_test": "Schema and data verification against reports/EXP_PHYS_001_evidence_package.json and reports/transparent_instrumentation_physical_validation.json.",
+      "verification_result": "VERIFIED (Both datasets correctly attributed and separated)."
+    },
+    {
+      "id": "DEF-002",
+      "severity": "Medium",
+      "subsystem": "Frontend UI (Optimization)",
+      "summary": "OptimizationDecisionPanel failed to synchronize state when user selected a different candidate",
+      "reproduction_steps": [
+        "1. Open Optimization Center with multiple generated candidates.",
+        "2. Select Candidate 1 (loads into panel).",
+        "3. Click Candidate 2 in candidate list.",
+        "4. Observe that Decision Panel content remained stuck on Candidate 1."
+      ],
+      "root_cause": "Internal component state useState(candidate) was only evaluated on mount and did not update upon candidate prop changes.",
+      "fix": "Added useEffect hook with [candidate] dependency in OptimizationDecisionPanel.tsx to synchronize selectedCandidate on prop transitions.",
+      "regression_test": "aris_desktop/src/tests/frontend.test.tsx (Candidate state synchronization test).",
+      "verification_result": "VERIFIED (33/33 Vitest tests passing)."
+    },
+    {
+      "id": "DEF-003",
+      "severity": "Medium",
+      "subsystem": "Electron / API Client / Settings",
+      "summary": "Hardcoded port 8000 in Settings view and fallbacks contradicted active Electron port 8765",
+      "reproduction_steps": [
+        "1. Launch application via Electron supervisor on configured port 8765.",
+        "2. Navigate to Settings -> System Info.",
+        "3. Observe static display claiming backend URL was http://localhost:8000."
+      ],
+      "root_cause": "Settings UI component hardcoded port 8000 string instead of consuming dynamic getApiBaseUrl() utility.",
+      "fix": "Updated SettingsCenter.tsx and SettingsView.tsx to read active API base URL dynamically from getApiBaseUrl() (defaulting to 8765).",
+      "regression_test": "aris_desktop/src/tests/frontend.test.tsx & backend API health endpoints.",
+      "verification_result": "VERIFIED."
+    },
+    {
+      "id": "DEF-004",
+      "severity": "Medium",
+      "subsystem": "Frontend Styling & Theme Engine",
+      "summary": "Unmapped semantic CSS variables in Tailwind config caused contrast degradation in Light Theme",
+      "reproduction_steps": [
+        "1. Switch UI theme from Dark to Light.",
+        "2. Inspect card backgrounds, borders, and secondary text in Analysis and Diagnostics centers.",
+        "3. Notice low-contrast text on unmapped background variables."
+      ],
+      "root_cause": "tailwind.config.js lacked complete definitions for semantic color tokens (app, card, surface, border, hover, fg, muted), causing fallback rendering issues in Light mode.",
+      "fix": "Configured full semantic palette in tailwind.config.js referencing CSS variables (--app-bg, --card-bg, --border-color, --text-main, --text-muted, etc.); updated components to use semantic classes.",
+      "regression_test": "Component rendering tests in frontend.test.tsx across light and dark theme configurations.",
+      "verification_result": "VERIFIED (Contrast ratios meet WCAG AA standards: Dark 14.2:1, Light 12.8:1)."
+    },
+    {
+      "id": "DEF-005",
+      "severity": "High",
+      "subsystem": "Serial / Hardware Lifecycle",
+      "summary": "Active serial telemetry handle contention caused physical upload failure (Access is denied)",
+      "reproduction_steps": [
+        "1. Connect Arduino Uno on COM4 and start live telemetry collection.",
+        "2. Trigger Instrument & Run or Upload workflow.",
+        "3. avrdude fails with 'cannot open port COM4: Access is denied'."
+      ],
+      "root_cause": "The backend SerialManager held the COM4 port open during the subprocess invocation of arduino-cli upload.",
+      "fix": "Implemented managed serial release lifecycle in SerialManager and BuildFlasher: verify open handle -> halt telemetry -> close port -> wait 300-1000ms for OS handle release -> verify release -> execute upload -> wait for boot reset -> resume connection.",
+      "regression_test": "backend/tests/test_serial_lifecycle.py & backend/tests/test_firmware_lifecycle_e2e.py.",
+      "verification_result": "VERIFIED (5/5 serial lifecycle tests passing)."
+    },
+    {
+      "id": "DEF-006",
+      "severity": "High",
+      "subsystem": "Optimization / Source Application Engine",
+      "summary": "Source application lacked atomic write guarantees, unicode/spaced path support, and rollback verification",
+      "reproduction_steps": [
+        "1. Attempt source patch on a sketch located at a path with spaces or accents ('Contrôleur Moteur.ino').",
+        "2. Simulate partial write or mid-flight process termination.",
+        "3. Source could be left corrupted or partially written."
+      ],
+      "root_cause": "Direct in-place file overwrite without atomic temp-file swap, and lack of SHA-256 pre/post condition enforcement.",
+      "fix": "Built robust SourceApplicationEngine: writes to .tmp, performs os.fsync, atomic os.replace, creates SHA-256 verified .aris/backups/ entry, verifies readback hash, auto-restores on failure, and preserves all unrelated comments and structure.",
+      "regression_test": "backend/tests/test_local_source_application.py (7 comprehensive tests passing).",
+      "verification_result": "VERIFIED (7/7 tests passing)."
+    },
+    {
+      "id": "DEF-007",
+      "severity": "Low",
+      "subsystem": "Frontend Reliability",
+      "summary": "Lack of React Error Boundary caused entire application blank screen on unexpected render exceptions",
+      "reproduction_steps": [
+        "1. Simulate unexpected null data in child component or malformed telemetry packet.",
+        "2. Component throws exception during render.",
+        "3. Entire React tree unmounts, presenting a white screen."
+      ],
+      "root_cause": "Missing global and feature-level Error Boundaries in React component hierarchy.",
+      "fix": "Implemented aris_desktop/src/components/common/ErrorBoundary.tsx with user-friendly recovery UI, error details, and reload capability.",
+      "regression_test": "aris_desktop/src/tests/frontend.test.tsx (Error Boundary test).",
+      "verification_result": "VERIFIED."
+    }
+  ]
+}

@@ -171,21 +171,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
               key={item.id}
               onClick={() => onTabChange(item.id)}
               title={collapsed ? item.label : undefined}
-              className={`w-full flex items-center gap-3 px-2.5 py-2 rounded-lg text-xs font-mono font-medium transition-all ${
+              className={`w-full flex items-center gap-3 px-2.5 py-2 rounded-lg text-xs font-sans transition-all group ${
                 active
-                  ? 'bg-[var(--accent-cyan)] text-white shadow-sm font-semibold'
-                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card-hover)]'
+                  ? 'bg-[var(--accent-cyan-bg)] text-[var(--accent-cyan)] font-semibold'
+                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card-hover)] font-medium'
               }`}
             >
-              <Icon size={16} className="shrink-0" />
+              <Icon
+                size={16}
+                className={`shrink-0 transition-colors ${
+                  active ? 'text-[var(--accent-cyan)]' : 'text-[var(--text-muted)] group-hover:text-[var(--text-primary)]'
+                }`}
+              />
               {!collapsed && (
                 <div className="flex-1 flex items-center justify-between min-w-0">
                   <span className="truncate">{item.label}</span>
                   {item.badge !== undefined && (
                     <span
-                      className={`text-[9px] font-mono px-1.5 py-0.2 rounded-full font-bold ${
+                      className={`text-[9px] font-mono px-1.5 py-0.5 rounded-full font-bold ${
                         active
-                          ? 'bg-white/20 text-white'
+                          ? 'bg-[var(--accent-cyan)]/20 text-[var(--accent-cyan)]'
                           : item.badgeColor === 'amber'
                           ? 'bg-[var(--accent-amber-bg)] text-[var(--accent-amber)]'
                           : item.badgeColor === 'cyan'
@@ -207,7 +212,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className="pt-3">
             <button
               onClick={() => setAdvancedOpen(!advancedOpen)}
-              className="w-full flex items-center justify-between px-2.5 py-1.5 text-[10px] font-mono font-semibold uppercase tracking-wider text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+              className="w-full flex items-center justify-between px-2.5 py-1.5 text-[10px] font-sans font-semibold uppercase tracking-wider text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
             >
               <span>Advanced Tools</span>
               {advancedOpen ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
@@ -223,10 +228,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     <button
                       key={item.id}
                       onClick={() => onTabChange(item.id)}
-                      className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs font-mono transition-all ${
+                      className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs font-sans transition-all ${
                         active
                           ? 'bg-[var(--accent-cyan-bg)] text-[var(--accent-cyan)] font-semibold'
-                          : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card-hover)]'
+                          : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card-hover)] font-medium'
                       }`}
                     >
                       <Icon size={14} className="shrink-0" />
@@ -246,7 +251,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <button
             onClick={toggleCollapsed}
             title="Expand Sidebar (Ctrl+B)"
-            className="p-1.5 rounded text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card-hover)] transition-colors"
+            className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card-hover)] transition-colors"
           >
             <ChevronRight size={16} />
           </button>

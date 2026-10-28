@@ -5,10 +5,18 @@
 
 #define ARIS_DEFAULT_EPOCH_MS 100
 #define ARIS_RUN_ID_MAX_LEN 32
-#if defined(ARDUINO) || defined(__AVR__)
-#define ARIS_BUFFER_SIZE 160
+#if defined(ARIS_LEAN_PROFILE)
+  #if defined(ARDUINO) || defined(__AVR__)
+    #define ARIS_BUFFER_SIZE 96
+  #else
+    #define ARIS_BUFFER_SIZE 128
+  #endif
 #else
-#define ARIS_BUFFER_SIZE 256
+  #if defined(ARDUINO) || defined(__AVR__)
+    #define ARIS_BUFFER_SIZE 160
+  #else
+    #define ARIS_BUFFER_SIZE 256
+  #endif
 #endif
 
 typedef struct {

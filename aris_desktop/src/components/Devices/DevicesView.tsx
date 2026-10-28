@@ -348,7 +348,7 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
                       {b.display_name}
                     </div>
                     <div className="text-xs font-mono text-[var(--text-muted)] mt-0.5">
-                      {b.mcu.toUpperCase()} · {b.architecture.toUpperCase()}
+                      {(b.mcu || 'Unknown MCU').toUpperCase()} · {(b.architecture || 'Unknown Arch').toUpperCase()}
                     </div>
                   </div>
                   {isSelected && (
@@ -361,19 +361,19 @@ export const DevicesView: React.FC<DevicesViewProps> = ({
                 <div className="space-y-1.5 text-xs font-mono pt-2 border-t border-[var(--border-color)]">
                   <div className="flex justify-between">
                     <span className="text-[var(--text-muted)]">Clock:</span>
-                    <span className="text-[var(--text-primary)]">{(b.clock_hz / 1e6).toFixed(0)} MHz (62.5ns)</span>
+                    <span className="text-[var(--text-primary)]">{b.clock_hz ? `${(b.clock_hz / 1e6).toFixed(0)} MHz (62.5ns)` : '—'}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-[var(--text-muted)]">Flash ROM:</span>
-                    <span className="text-[var(--text-primary)]">{b.flash_bytes / 1024} KB</span>
+                    <span className="text-[var(--text-primary)]">{b.flash_bytes ? `${b.flash_bytes / 1024} KB` : '—'}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-[var(--text-muted)]">SRAM:</span>
-                    <span className="text-[var(--text-primary)]">{b.sram_bytes / 1024} KB ({b.sram_bytes}B)</span>
+                    <span className="text-[var(--text-primary)]">{b.sram_bytes ? `${b.sram_bytes / 1024} KB (${b.sram_bytes}B)` : '—'}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-[var(--text-muted)]">Timers:</span>
-                    <span className="text-[var(--text-primary)]">{b.timer_count} Hardware</span>
+                    <span className="text-[var(--text-primary)]">{b.timer_count != null ? `${b.timer_count} Hardware` : '—'}</span>
                   </div>
                 </div>
               </div>

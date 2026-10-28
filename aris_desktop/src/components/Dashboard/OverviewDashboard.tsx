@@ -23,7 +23,6 @@ import {
   AlertTriangle,
   RotateCw,
   CheckCircle2,
-  Sparkles,
   ArrowRight,
   Usb,
   Search,
@@ -114,37 +113,37 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
   if (!isActive) {
     return (
       <div className="h-full flex flex-col items-center justify-center p-6 select-none bg-[var(--bg-app)]">
-        <div className="max-w-md w-full flex flex-col items-center text-center space-y-6">
+        <div className="max-w-lg w-full flex flex-col items-center text-center space-y-7 aris-card p-8 sm:p-10 shadow-sm">
           {/* Logo & Headline */}
           <div className="flex flex-col items-center space-y-3">
-            <div className="w-16 h-16 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)] flex items-center justify-center shadow-md">
-              <ArisLogo size={34} glow={false} />
+            <div className="w-16 h-16 rounded-2xl bg-[var(--bg-surface)] border border-[var(--border-color)] flex items-center justify-center shadow-sm">
+              <ArisLogo size={36} glow={false} />
             </div>
             <div className="space-y-1">
               <h2 className="text-2xl font-heading font-extrabold tracking-tight text-[var(--text-primary)]">
-                ARIS
+                ARIS Studio
               </h2>
-              <p className="text-xs font-mono text-[var(--text-muted)]">
-                Arduino Runtime Intelligence System
+              <p className="text-xs font-sans text-[var(--text-muted)]">
+                Adaptive Runtime Intelligence System for Arduino & AVR
               </p>
             </div>
           </div>
 
           {/* Description */}
-          <div className="space-y-2">
-            <div className="text-sm font-semibold text-[var(--text-secondary)]">
-              No hardware connected
+          <div className="space-y-2 max-w-sm">
+            <div className="text-sm font-semibold text-[var(--text-secondary)] font-sans">
+              Hardware Standby
             </div>
-            <p className="text-xs text-[var(--text-muted)] leading-relaxed font-mono">
-              Connect your Arduino via USB to begin runtime telemetry, automated firmware analysis, and closed-loop optimization.
+            <p className="text-xs text-[var(--text-muted)] leading-relaxed font-sans">
+              Connect your Arduino board via USB to stream real-time loop telemetry, detect blocking code, and safely optimize local sketch files.
             </p>
           </div>
 
           {/* Primary Action Buttons */}
-          <div className="flex flex-col sm:flex-row items-center gap-3 w-full justify-center pt-2">
+          <div className="flex flex-col sm:flex-row items-center gap-3 w-full justify-center pt-1">
             <button
-              onClick={() => onNavigate('settings')}
-              className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] hover:border-[var(--text-muted)] text-xs font-mono font-semibold text-[var(--text-primary)] transition-all shadow-sm"
+              onClick={() => onNavigate('devices')}
+              className="aris-btn-secondary w-full sm:w-auto"
             >
               <Usb size={14} className="text-[var(--accent-cyan)]" />
               <span>Connect Hardware</span>
@@ -152,40 +151,33 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
 
             <button
               onClick={() => onStartDemo('arduino_uno', 'led_blink')}
-              className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-[var(--accent-cyan)] hover:opacity-90 text-white text-xs font-mono font-bold transition-all shadow-sm"
+              className="aris-btn-primary w-full sm:w-auto"
             >
-              <Sparkles size={14} />
+              <Play size={14} />
               <span>Launch Simulation</span>
             </button>
           </div>
 
-          {/* Clean State Overview (Clean — indicators, zero fake data) */}
-          <div className="w-full pt-4 border-t border-[var(--border-color)] grid grid-cols-2 sm:grid-cols-4 gap-3 text-left">
-            <div className="p-2.5 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-color)]">
-              <div className="text-[10px] font-mono text-[var(--text-muted)] uppercase">Target Board</div>
-              <div className="text-xs font-mono font-medium text-[var(--text-secondary)] mt-1 truncate">
-                —
+          {/* Minimal 3-Step Guidance (Google Home Simplicity) */}
+          <div className="w-full pt-5 border-t border-[var(--border-color)] grid grid-cols-1 sm:grid-cols-3 gap-3 text-left">
+            <div className="p-3 rounded-lg bg-[var(--bg-surface)]/60 border border-[var(--border-color)]">
+              <div className="text-[10px] font-mono font-bold text-[var(--accent-cyan)] uppercase">1. Hardware</div>
+              <div className="text-xs font-sans font-medium text-[var(--text-secondary)] mt-1">
+                Auto-detects Uno, Nano, Mega on USB
               </div>
             </div>
 
-            <div className="p-2.5 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-color)]">
-              <div className="text-[10px] font-mono text-[var(--text-muted)] uppercase">Firmware</div>
-              <div className="text-xs font-mono font-medium text-[var(--text-secondary)] mt-1 truncate">
-                —
+            <div className="p-3 rounded-lg bg-[var(--bg-surface)]/60 border border-[var(--border-color)]">
+              <div className="text-[10px] font-mono font-bold text-[var(--accent-cyan)] uppercase">2. Firmware</div>
+              <div className="text-xs font-sans font-medium text-[var(--text-secondary)] mt-1">
+                Syncs local Arduino .ino directly
               </div>
             </div>
 
-            <div className="p-2.5 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-color)]">
-              <div className="text-[10px] font-mono text-[var(--text-muted)] uppercase">Telemetry</div>
-              <div className="text-xs font-mono font-medium text-[var(--text-secondary)] mt-1 truncate">
-                No data
-              </div>
-            </div>
-
-            <div className="p-2.5 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-color)]">
-              <div className="text-[10px] font-mono text-[var(--text-muted)] uppercase">Analysis</div>
-              <div className="text-xs font-mono font-medium text-[var(--text-secondary)] mt-1 truncate">
-                Waiting
+            <div className="p-3 rounded-lg bg-[var(--bg-surface)]/60 border border-[var(--border-color)]">
+              <div className="text-[10px] font-mono font-bold text-[var(--accent-cyan)] uppercase">3. Optimize</div>
+              <div className="text-xs font-sans font-medium text-[var(--text-secondary)] mt-1">
+                Validated closed-loop improvements
               </div>
             </div>
           </div>
@@ -198,25 +190,25 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
   // SCENARIO 2: ACTIVE (HARDWARE CONNECTED OR SIMULATION ACTIVE)
   // ============================================================
   return (
-    <div className="h-full flex flex-col overflow-y-auto p-4 md:p-6 space-y-6 select-none bg-[var(--bg-app)]">
+    <div className="h-full flex flex-col overflow-y-auto p-4 md:p-6 lg:p-8 space-y-6 select-none bg-[var(--bg-app)]">
       {/* 1. Header Bar: Status & Primary Controls */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-[var(--border-color)] pb-4">
         <div>
           <div className="flex items-center gap-2.5">
-            <h1 className="text-xl font-heading font-extrabold text-[var(--text-primary)]">
+            <h1 className="text-2xl font-heading font-extrabold text-[var(--text-primary)]">
               Dashboard
             </h1>
             <span
-              className={`text-[9px] font-mono px-2 py-0.5 rounded font-bold border ${
+              className={`text-[9px] font-mono px-2 py-0.5 rounded-full font-bold border ${
                 isDemo
                   ? 'bg-[var(--accent-amber-bg)] text-[var(--accent-amber)] border-[var(--accent-amber)]/30'
                   : 'bg-[var(--accent-green-bg)] text-[var(--accent-green)] border-[var(--accent-green)]/30'
               }`}
             >
-              {isDemo ? 'SIMULATION ACTIVE' : 'REAL HARDWARE'}
+              {isDemo ? 'SIMULATION ACTIVE' : 'PHYSICAL HARDWARE'}
             </span>
           </div>
-          <p className="text-xs text-[var(--text-muted)] mt-1 font-mono">
+          <p className="text-xs text-[var(--text-muted)] mt-1 font-sans">
             {selectedBoard?.display_name || 'Arduino Target'} · {selectedBoard?.mcu?.toUpperCase() || 'AVR'} ·{' '}
             {connectedPort ? `${connectedPort} (115200 baud)` : isDemo ? 'Virtual UART Bus' : 'Connected'}
           </p>
@@ -226,7 +218,7 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
           {isRunning ? (
             <button
               onClick={onStopRun}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[var(--accent-red-bg)] text-[var(--accent-red)] border border-[var(--accent-red)]/30 hover:opacity-90 text-xs font-mono font-semibold shadow-sm transition-opacity"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[var(--accent-red-bg)] text-[var(--accent-red)] border border-[var(--accent-red)]/30 hover:opacity-90 text-xs font-sans font-semibold shadow-sm transition-opacity"
             >
               <Square size={13} />
               <span>Stop Session</span>
@@ -234,7 +226,7 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
           ) : hasHardware ? (
             <button
               onClick={onStartHardwareRun}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[var(--accent-green)] hover:opacity-90 text-white text-xs font-mono font-bold shadow-sm transition-opacity"
+              className="aris-btn-primary"
             >
               <Play size={13} />
               <span>Capture Telemetry</span>
@@ -242,7 +234,7 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
           ) : (
             <button
               onClick={onStopRun}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] text-xs font-mono text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+              className="aris-btn-secondary"
             >
               <span>Exit Simulation</span>
             </button>
@@ -250,7 +242,7 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
 
           <button
             onClick={() => onNavigate('firmware')}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] hover:border-[var(--text-muted)] text-xs font-mono font-semibold text-[var(--text-primary)] transition-colors"
+            className="aris-btn-secondary"
           >
             <FileCode2 size={13} className="text-[var(--accent-cyan)]" />
             <span>View Firmware</span>
@@ -262,16 +254,16 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Dimension 1: Target Hardware */}
         <div
-          onClick={() => onNavigate('settings')}
+          onClick={() => onNavigate('devices')}
           className="aris-card p-4 space-y-2 cursor-pointer aris-card-hover"
         >
-          <div className="flex items-center justify-between text-[11px] font-mono text-[var(--text-muted)]">
+          <div className="flex items-center justify-between text-xs font-sans font-medium text-[var(--text-muted)]">
             <span className="flex items-center gap-1.5">
               <Cpu size={14} className="text-[var(--accent-cyan)]" />
-              <span>TARGET HARDWARE</span>
+              <span>Target Hardware</span>
             </span>
             <span
-              className={`text-[9px] font-mono px-1.5 py-0.5 rounded font-semibold border ${
+              className={`text-[9px] font-mono px-2 py-0.5 rounded-full font-bold border ${
                 selectedBoard?.confidence === 'CONFIRMED'
                   ? 'bg-[var(--accent-green-bg)] text-[var(--accent-green)] border-[var(--accent-green)]/30'
                   : selectedBoard?.confidence === 'MISMATCH'
@@ -296,10 +288,10 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
           onClick={() => onNavigate('firmware')}
           className="aris-card p-4 space-y-2 cursor-pointer aris-card-hover"
         >
-          <div className="flex items-center justify-between text-[11px] font-mono text-[var(--text-muted)]">
+          <div className="flex items-center justify-between text-xs font-sans font-medium text-[var(--text-muted)]">
             <span className="flex items-center gap-1.5">
               <FileCode2 size={14} className="text-[var(--accent-green)]" />
-              <span>FIRMWARE</span>
+              <span>Firmware Sketch</span>
             </span>
             <span className="text-[10px] font-mono text-[var(--text-muted)]">
               {activeIDESketch ? 'Arduino IDE' : 'Source'}
@@ -319,10 +311,10 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
           onClick={() => onNavigate('telemetry')}
           className="aris-card p-4 space-y-2 cursor-pointer aris-card-hover"
         >
-          <div className="flex items-center justify-between text-[11px] font-mono text-[var(--text-muted)]">
+          <div className="flex items-center justify-between text-xs font-sans font-medium text-[var(--text-muted)]">
             <span className="flex items-center gap-1.5">
               <Activity size={14} className="text-[var(--accent-amber)]" />
-              <span>TELEMETRY</span>
+              <span>Telemetry Stream</span>
             </span>
             <span className="text-[10px] font-mono text-[var(--text-muted)]">
               {isRunning ? 'STREAMING' : 'READY'}
@@ -342,13 +334,13 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
           onClick={() => onNavigate('analysis')}
           className="aris-card p-4 space-y-2 cursor-pointer aris-card-hover"
         >
-          <div className="flex items-center justify-between text-[11px] font-mono text-[var(--text-muted)]">
+          <div className="flex items-center justify-between text-xs font-sans font-medium text-[var(--text-muted)]">
             <span className="flex items-center gap-1.5">
               <Zap size={14} className="text-[var(--accent-purple)]" />
-              <span>ANALYSIS</span>
+              <span>Analysis & Advice</span>
             </span>
             {findings.length > 0 && (
-              <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-[var(--accent-amber-bg)] text-[var(--accent-amber)] font-bold">
+              <span className="text-[9px] font-mono px-2 py-0.5 rounded-full bg-[var(--accent-amber-bg)] text-[var(--accent-amber)] font-bold">
                 {findings.length} ISSUES
               </span>
             )}
@@ -366,68 +358,71 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
       {/* 3. Essential Runtime Metrics (Loop Time, CPU, SRAM) */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <span className="text-xs font-mono font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+          <span className="text-xs font-sans font-semibold uppercase tracking-wider text-[var(--text-muted)]">
             Key Measurements
           </span>
-          <span className="text-[11px] font-mono text-[var(--text-muted)]">
-            Source: {isDemo ? 'Simulation' : 'Physical Hardware'}
+          <span className="text-xs font-sans text-[var(--text-muted)]">
+            Source: <span className="font-mono text-[var(--text-secondary)]">{isDemo ? 'Simulation' : 'Physical Hardware'}</span>
           </span>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {/* Metric 1: Loop Time */}
-          <div className="aris-card p-4 space-y-2">
+          <div className="aris-card p-5 space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-mono font-semibold text-[var(--text-secondary)]">
+              <span className="text-xs font-sans font-semibold text-[var(--text-secondary)] flex items-center gap-2">
                 Loop Execution Time
+                <span className="text-[8px] font-mono px-1.5 py-0.2 rounded-full bg-[var(--bg-surface)] text-[var(--accent-green)] border border-[var(--border-color)] font-bold">MEASURED</span>
               </span>
-              <Clock size={13} className="text-[var(--text-muted)]" />
+              <Clock size={14} className="text-[var(--text-muted)]" />
             </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-heading font-extrabold text-[var(--text-primary)]">
+            <div className="flex items-baseline gap-2 pt-1">
+              <span className="text-3xl font-heading font-extrabold text-[var(--text-primary)] tabular-nums">
                 {loopTime ? `${loopTime}` : '—'}
               </span>
               {loopTime && <span className="text-xs font-mono text-[var(--text-muted)]">ms</span>}
             </div>
-            <div className="text-[11px] font-mono text-[var(--text-muted)]">
+            <div className="text-xs font-sans text-[var(--text-muted)]">
               {loopTime ? 'Iteration period between loop() cycles' : 'Run telemetry to measure'}
             </div>
           </div>
 
           {/* Metric 2: CPU Load */}
-          <div className="aris-card p-4 space-y-2">
+          <div className="aris-card p-5 space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-mono font-semibold text-[var(--text-secondary)]">
+              <span className="text-xs font-sans font-semibold text-[var(--text-secondary)] flex items-center gap-2">
                 CPU Duty Cycle
+                <span className="text-[8px] font-mono px-1.5 py-0.2 rounded-full bg-[var(--bg-surface)] text-[var(--accent-cyan)] border border-[var(--border-color)] font-bold">ESTIMATED</span>
               </span>
-              <Cpu size={13} className="text-[var(--text-muted)]" />
+              <Cpu size={14} className="text-[var(--text-muted)]" />
             </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-heading font-extrabold text-[var(--text-primary)]">
+            <div className="flex items-baseline gap-2 pt-1">
+              <span className="text-3xl font-heading font-extrabold text-[var(--text-primary)] tabular-nums">
                 {cpuLoad ? `${cpuLoad}%` : '—'}
               </span>
             </div>
-            <div className="text-[11px] font-mono text-[var(--text-muted)]">
+            <div className="text-xs font-sans text-[var(--text-muted)]">
               {cpuLoad ? 'Estimated non-idle processor cycle load' : 'Run telemetry to measure'}
             </div>
           </div>
 
           {/* Metric 3: SRAM Utilization */}
-          <div className="aris-card p-4 space-y-2">
+          <div className="aris-card p-5 space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-mono font-semibold text-[var(--text-secondary)]">
+              <span className="text-xs font-sans font-semibold text-[var(--text-secondary)] flex items-center gap-2">
                 Static RAM (SRAM)
+                <span className="text-[8px] font-mono px-1.5 py-0.2 rounded-full bg-[var(--bg-surface)] text-[var(--accent-purple)] border border-[var(--border-color)] font-bold">DERIVED</span>
               </span>
-              <HardDrive size={13} className="text-[var(--text-muted)]" />
+              <HardDrive size={14} className="text-[var(--text-muted)]" />
             </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-heading font-extrabold text-[var(--text-primary)]">
+            <div className="flex items-baseline gap-2 pt-1">
+              <span className="text-3xl font-heading font-extrabold text-[var(--text-primary)] tabular-nums">
                 {sramUsed !== null ? `${sramUsed}` : '—'}
               </span>
               <span className="text-xs font-mono text-[var(--text-muted)]">/ {maxSram ? `${maxSram} B` : '—'}</span>
             </div>
-            <div className="text-[11px] font-mono text-[var(--text-muted)]">
-              {sramUsed !== null && maxSram !== null ? `${maxSram - sramUsed} bytes free headroom` : 'Static allocation'}
+            <div className="text-xs font-sans text-[var(--text-muted)]">
+              {sramUsed !== null && maxSram !== null ? `${maxSram - sramUsed} bytes free headroom` : 'Static global allocation'}
             </div>
           </div>
         </div>
@@ -446,14 +441,14 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
             </div>
             <button
               onClick={() => onNavigate('analysis')}
-              className="text-xs font-mono text-[var(--accent-cyan)] hover:underline"
+              className="text-xs font-sans font-semibold text-[var(--accent-cyan)] hover:underline"
             >
               View All ({findings.length}) →
             </button>
           </div>
 
           {findings.length === 0 ? (
-            <div className="py-8 text-center text-xs font-mono text-[var(--text-muted)]">
+            <div className="py-8 text-center text-xs font-sans text-[var(--text-muted)]">
               No firmware bottlenecks found. Run static analysis or telemetry to inspect code.
             </div>
           ) : (
@@ -462,14 +457,14 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
                 <div
                   key={f.finding_id}
                   onClick={() => onNavigate('analysis')}
-                  className="p-3 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-color)] hover:border-[var(--text-muted)] cursor-pointer transition-colors space-y-1"
+                  className="p-3.5 rounded-xl bg-[var(--bg-surface)]/70 border border-[var(--border-color)] hover:border-[var(--border-hover)] cursor-pointer transition-all space-y-1.5 shadow-xs"
                 >
                   <div className="flex items-center justify-between">
-                    <span className="font-bold text-xs text-[var(--text-primary)]">
+                    <span className="font-sans font-semibold text-xs text-[var(--text-primary)]">
                       {f.title}
                     </span>
                     <span
-                      className={`text-[9px] font-mono px-1.5 py-0.2 rounded font-bold ${
+                      className={`text-[9px] font-mono px-2 py-0.5 rounded-full font-bold ${
                         f.severity === 'CRITICAL' || f.severity === 'HIGH'
                           ? 'bg-[var(--accent-red-bg)] text-[var(--accent-red)]'
                           : f.severity === 'MEDIUM'
@@ -481,8 +476,11 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
                     </span>
                   </div>
                   <div className="text-[11px] font-mono text-[var(--text-muted)]">
-                    {f.source_file}:{f.source_line} · {f.recommended_action}
+                    {f.source_file}:{f.source_line}
                   </div>
+                  <p className="text-xs font-sans text-[var(--text-secondary)] line-clamp-1">
+                    {f.recommended_action}
+                  </p>
                 </div>
               ))}
             </div>
@@ -500,14 +498,14 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
             </div>
             <button
               onClick={() => onNavigate('optimize')}
-              className="text-xs font-mono text-[var(--accent-cyan)] hover:underline"
+              className="text-xs font-sans font-semibold text-[var(--accent-cyan)] hover:underline"
             >
               Open Optimizer ({optimizations.length}) →
             </button>
           </div>
 
           {optimizations.length === 0 ? (
-            <div className="py-8 text-center text-xs font-mono text-[var(--text-muted)]">
+            <div className="py-8 text-center text-xs font-sans text-[var(--text-muted)]">
               No optimizations generated yet. Once findings are identified, ARIS recommends non-blocking improvements.
             </div>
           ) : (
@@ -516,13 +514,13 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
                 <div
                   key={opt.optimization_id}
                   onClick={() => onNavigate('optimize')}
-                  className="p-3 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-color)] hover:border-[var(--accent-cyan)]/40 cursor-pointer transition-colors space-y-1"
+                  className="p-3.5 rounded-xl bg-[var(--bg-surface)]/70 border border-[var(--border-color)] hover:border-[var(--accent-cyan)]/40 cursor-pointer transition-all space-y-1.5 shadow-xs"
                 >
                   <div className="flex items-center justify-between">
-                    <span className="font-bold text-xs text-[var(--text-primary)]">
+                    <span className="font-sans font-semibold text-xs text-[var(--text-primary)]">
                       {opt.title}
                     </span>
-                    <span className="text-[10px] font-mono text-[var(--accent-green)] font-semibold">
+                    <span className="text-[10px] font-mono text-[var(--accent-green)] font-bold bg-[var(--accent-green-bg)] px-2 py-0.5 rounded-full">
                       {(opt.expected_effect as any)?.latency_delta_ms !== undefined
                         ? `${(opt.expected_effect as any).latency_delta_ms} ms latency`
                         : (opt.expected_effect as any)?.loop_time_delta_ms !== undefined
@@ -530,7 +528,7 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
                         : 'Predicted improvement'}
                     </span>
                   </div>
-                  <p className="text-[11px] font-mono text-[var(--text-muted)] line-clamp-1">
+                  <p className="text-xs font-sans text-[var(--text-muted)] line-clamp-1">
                     {opt.reason}
                   </p>
                 </div>

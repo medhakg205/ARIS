@@ -1,5 +1,6 @@
 #include "board_mega.h"
 
+#if !defined(__AVR__) || defined(__AVR_ATmega2560__)
 #if defined(__AVR__)
 #include <avr/io.h>
 #include <avr/wdt.h>
@@ -92,3 +93,4 @@ bool MegaBoardAdapter::validate_adc_channel(uint8_t channel) const {
     // Mega 2560 has 16 analog input pins
     return channel < 16;
 }
+#endif // !defined(__AVR__) || defined(__AVR_ATmega2560__)

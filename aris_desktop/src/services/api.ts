@@ -26,8 +26,12 @@ import type {
 
 const DEFAULT_BASE = 'http://127.0.0.1:8765';
 
-function getBase(): string {
+export function getApiBaseUrl(): string {
   return (window as unknown as Record<string, unknown>).__ARIS_API_BASE__ as string || DEFAULT_BASE;
+}
+
+function getBase(): string {
+  return getApiBaseUrl();
 }
 
 class ARISApiError extends Error {
@@ -46,23 +50,32 @@ async function request<T>(
   method: string,
   path: string,
   body?: unknown,
+  timeoutMs = 15000,
 ): Promise<T> {
   const url = `${getBase()}${path}`;
   const opts: RequestInit = {
     method,
     headers: { 'Content-Type': 'application/json' },
-    signal: AbortSignal.timeout(15000),
+    signal: AbortSignal.timeout(timeoutMs),
   };
   if (body !== undefined) opts.body = JSON.stringify(body);
 
   let resp: Response;
   try {
     resp = await fetch(url, opts);
-  } catch (e) {
+  } catch (e: any) {
+    if (e?.name === 'TimeoutError' || e?.name === 'AbortError') {
+      throw new ARISApiError(
+        'ARIS_OPERATION_TIMEOUT',
+        `Operation timed out after ${Math.round(timeoutMs / 1000)}s waiting for ARIS backend.`,
+        { url, path, timeoutMs },
+        true,
+      );
+    }
     throw new ARISApiError(
       'ARIS_BACKEND_UNAVAILABLE',
       'Cannot reach ARIS backend. Is the server running on port 8765?',
-      { url },
+      { url, path, originalError: e?.message },
       true,
     );
   }
@@ -81,12 +94,13 @@ async function request<T>(
   return resp.json() as Promise<T>;
 }
 
-const get = <T>(path: string) => request<T>('GET', path);
-const post = <T>(path: string, body?: unknown) => request<T>('POST', path, body);
+const get = <T>(path: string, timeoutMs?: number) => request<T>('GET', path, undefined, timeoutMs);
+const post = <T>(path: string, body?: unknown, timeoutMs?: number) => request<T>('POST', path, body, timeoutMs);
 
 // ---- Health ----
 export const apiHealth = () => get<HealthStatus>('/api/health');
 export const apiLightweightHealth = () => get<{ status: string; service: string; port: number }>('/health');
+export const apiPreDemoHealth = () => get<any>('/api/health/pre-demo');
 
 // ---- Boards ----
 export const apiGetBoards = () => get<BoardProfile[]>('/api/boards');
@@ -146,7 +160,7 @@ export const apiCompileFirmware = (sourceCode: string, boardId = 'arduino_uno', 
     sram_usage_pct: number;
     size_unavailable?: boolean;
     compiler_output: string;
-  }>('/api/firmware/compile', { source_code: sourceCode, board_id: boardId, is_simulation: isSimulation });
+  }>('/api/firmware/compile', { source_code: sourceCode, board_id: boardId, is_simulation: isSimulation }, 60000);
 export const apiFlashFirmware = (boardId: string, port: string, sourceCode?: string, binaryPath?: string) =>
   post<{
     status: string;
@@ -156,7 +170,7 @@ export const apiFlashFirmware = (boardId: string, port: string, sourceCode?: str
     bytes_written: number;
     verified: boolean;
     message: string;
-  }>('/api/firmware/flash', { board_id: boardId, port, source_code: sourceCode, binary_path: binaryPath });
+  }>('/api/firmware/flash', { board_id: boardId, port, source_code: sourceCode, binary_path: binaryPath }, 60000);
 
 export interface InstrumentAndBuildResponse {
   status: string;
@@ -188,6 +202,9 @@ export interface InstrumentAndBuildResponse {
     compiler_output: string;
   };
   upload_result?: any;
+  handshake?: any;
+  run?: any;
+  telemetry_active?: boolean;
   ready_for_physical_deployment: boolean;
 }
 
@@ -197,6 +214,8 @@ export const apiInstrumentAndBuild = (
   boardId = 'arduino_uno',
   port?: string,
   executeUpload = false,
+  instrumentationMode = 'BALANCED',
+  sramWarningThresholdBytes = 256,
 ) =>
   post<InstrumentAndBuildResponse>('/api/firmware/instrument-and-build', {
     source_code: sourceCode,
@@ -204,10 +223,23 @@ export const apiInstrumentAndBuild = (
     board_id: boardId,
     port,
     execute_upload: executeUpload,
+    instrumentation_mode: instrumentationMode,
+    sram_warning_threshold_bytes: sramWarningThresholdBytes,
+  }, 90000);
+
+export const apiTriggerHandshake = (timeoutSec = 3.0, port?: string, runId?: string) =>
+  post<Record<string, unknown>>('/api/connection/handshake', {
+    timeout_sec: timeoutSec,
+    port,
+    run_id: runId,
   });
 
-export const apiTriggerHandshake = (timeoutSec = 2.0) =>
-  post<Record<string, unknown>>('/api/connection/handshake', { timeout_sec: timeoutSec });
+export const apiReleaseSerial = (port?: string, waitMs = 500) =>
+  post<{ released: boolean; port?: string; is_open: boolean }>('/api/connection/release', {
+    port,
+    wait_ms: waitMs,
+  });
+
 
 
 // ---- Runs ----
@@ -242,16 +274,73 @@ export const apiGetAnalysis = (runId: string) =>
   get<Record<string, unknown>>(`/api/runs/${runId}/analysis`);
 export const apiGetFindings = (runId: string) =>
   get<FindingRecord[]>(`/api/runs/${runId}/findings`);
+export const apiScanSource = (sourceCode?: string, sketchPath?: string, boardId = 'arduino_uno', sourceFile?: string) =>
+  post<{
+    board_id: string;
+    source_file: string;
+    static_metrics: any;
+    findings_count: number;
+    findings: FindingRecord[];
+  }>('/api/analysis/scan', {
+    source_code: sourceCode,
+    sketch_path: sketchPath,
+    board_id: boardId,
+    source_file: sourceFile,
+  }, 30000);
 
 // ---- Optimizations ----
 export const apiGetOptimizations = (runId: string) =>
   get<OptimizationCandidate[]>(`/api/runs/${runId}/optimizations`);
+export const apiListAllOptimizations = () =>
+  get<OptimizationCandidate[]>('/api/optimizations');
 export const apiGetOptimization = (optimizationId: string) =>
   get<OptimizationCandidate>(`/api/optimizations/${optimizationId}`);
 export const apiApproveOptimization = (optimizationId: string) =>
   post<OptimizationCandidate>(`/api/optimizations/${optimizationId}/approve`);
+export const apiAcceptOptimization = (optimizationId: string, sketchPath?: string, expectedHash?: string) =>
+  post<{
+    success: boolean;
+    status: string;
+    applied?: boolean;
+    optimization: OptimizationCandidate;
+    active_firmware?: any;
+    source_application?: any;
+    message?: string;
+  }>(
+    `/api/optimizations/${optimizationId}/accept`,
+    { sketch_path: sketchPath, expected_hash: expectedHash, apply_to_source: true }
+  );
 export const apiRejectOptimization = (optimizationId: string) =>
   post<OptimizationCandidate>(`/api/optimizations/${optimizationId}/reject`);
+
+export const apiApplyCandidate = (candidateId: string, sketchPath?: string, expectedHash?: string) =>
+  post<{
+    success: boolean;
+    applied: boolean;
+    candidate_id: string;
+    sketch_path: string;
+    backup_path: string;
+    parent_source_hash: string;
+    candidate_source_hash: string;
+    applied_at: string;
+  }>('/api/firmware/apply-candidate', {
+    candidate_id: candidateId,
+    sketch_path: sketchPath,
+    expected_hash: expectedHash,
+  });
+
+export const apiRevertCandidate = (candidateId?: string, sketchPath?: string, backupPath?: string) =>
+  post<{ success: boolean; reverted: boolean; sketch_path: string; restored_from: string }>(
+    '/api/firmware/revert-candidate',
+    {
+      candidate_id: candidateId,
+      sketch_path: sketchPath,
+      backup_path: backupPath,
+    }
+  );
+
+export const apiGetActiveFirmware = () =>
+  get<FirmwareRecord>('/api/firmware/active');
 
 // ---- Experiments ----
 export const apiCreateExperiment = (
@@ -293,7 +382,7 @@ export const apiAiAnalyze = (
     board_id: boardId,
     source_code: sourceCode,
     run_id: runId,
-  });
+  }, 60000);
 
 export const apiAiGenerateCandidate = (
   finding: FindingRecord,
@@ -308,7 +397,7 @@ export const apiAiGenerateCandidate = (
     board_id: boardId,
     run_id: runId,
     provider,
-  });
+  }, 60000);
 
 export const apiGetAIProviders = () =>
   get<{ providers: AIProviderInfo[] }>('/api/ai/providers');

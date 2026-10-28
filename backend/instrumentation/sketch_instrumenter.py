@@ -183,12 +183,14 @@ class SketchInstrumenter:
         source_code: str,
         board_id: str = "arduino_uno",
         baud_rate: int = 115200,
-        run_id: str = "DEMO-RUN"
+        run_id: str = "DEMO-RUN",
+        instrumentation_mode: str = "BALANCED"
     ) -> Tuple[str, List[str], str]:
         """
         Pure string transformation.
         Instruments setup() and loop(), prepends <aris_runtime.h>,
         and returns (instrumented_code, inserted_blocks, unified_diff).
+        Supports BALANCED (default) and LEAN (minimal overhead) profiles.
         """
         if not source_code or not source_code.strip():
             raise ArisException(
@@ -216,17 +218,21 @@ class SketchInstrumenter:
 
         inserted_blocks: List[str] = []
 
+        is_lean = (instrumentation_mode.upper() == "LEAN")
+        mode_constant = "ARIS_MODE_LOW" if is_lean else "ARIS_MODE_BALANCED"
+        header_def = "#define ARIS_LEAN_PROFILE 1\n" if is_lean else ""
+
         # Code snippets to inject
         header_snippet = (
             "// ============================================================================\n"
-            "// ARIS Studio Transparent Instrumentation (Auto-generated - DO NOT EDIT)\n"
+            f"// ARIS Studio Transparent Instrumentation ({'LEAN Profile' if is_lean else 'Standard Profile'} - DO NOT EDIT)\n"
             "// ============================================================================\n"
-            "#include <aris_runtime.h>\n\n"
+            f"{header_def}#include <aris_runtime.h>\n\n"
         )
 
         setup_init_snippet = (
-            "\n  // [ARIS] Runtime Auto-Initialization\n"
-            f'  ARIS.init("{board_id}", {baud_rate}UL, "{run_id}", ARIS_MODE_BALANCED);\n'
+            f"\n  // [ARIS] Runtime Auto-Initialization ({'LEAN' if is_lean else 'BALANCED'})\n"
+            f'  ARIS.init("{board_id}", {baud_rate}UL, "{run_id}", {mode_constant});\n'
         )
 
         loop_enter_snippet = "\n  ARIS.loop_enter();\n"
@@ -279,7 +285,8 @@ class SketchInstrumenter:
         board_id: str = "arduino_uno",
         baud_rate: int = 115200,
         run_id: Optional[str] = None,
-        base_build_dir: Optional[str] = None
+        base_build_dir: Optional[str] = None,
+        instrumentation_mode: str = "BALANCED"
     ) -> InstrumentationResult:
         """
         Generates an isolated shadow workspace without modifying the source file on disk.
@@ -308,7 +315,8 @@ class SketchInstrumenter:
             source_code=source_code,
             board_id=board_id,
             baud_rate=baud_rate,
-            run_id=rid
+            run_id=rid,
+            instrumentation_mode=instrumentation_mode
         )
 
         # Setup isolated shadow build directory

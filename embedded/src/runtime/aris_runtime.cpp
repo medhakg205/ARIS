@@ -14,6 +14,16 @@ static uint32_t host_micros() { return mock_system_us; }
 #define micros host_micros
 #endif
 
+#if defined(ARDUINO) || defined(__AVR__)
+#if defined(__AVR_ATmega2560__)
+static MegaBoardAdapter global_adapter;
+#else
+static UnoBoardAdapter global_adapter;
+#endif
+static InstrumentationManager global_manager(&global_adapter);
+static TelemetryCollector global_collector(&global_manager);
+#endif
+
 ArisRuntime::ArisRuntime()
     : adapter(nullptr),
       manager(nullptr),
@@ -25,9 +35,11 @@ ArisRuntime::ArisRuntime()
 }
 
 ArisRuntime::~ArisRuntime() {
+#if !defined(ARDUINO) && !defined(__AVR__)
     delete collector;
     delete manager;
     delete adapter;
+#endif
 }
 
 void ArisRuntime::init(
@@ -47,6 +59,11 @@ void ArisRuntime::init(
 #endif
     }
 
+#if defined(ARDUINO) || defined(__AVR__)
+    adapter = &global_adapter;
+    manager = &global_manager;
+    collector = &global_collector;
+#else
     delete collector;
     delete manager;
     delete adapter;
@@ -54,6 +71,7 @@ void ArisRuntime::init(
     adapter = aris_create_board_adapter(board_id);
     manager = new InstrumentationManager(adapter);
     collector = new TelemetryCollector(manager);
+#endif
 
     config.serial_baud_rate = baud_rate;
     config.mode = mode;
@@ -64,6 +82,7 @@ void ArisRuntime::init(
 
 #if defined(ARDUINO)
     Serial.begin(baud_rate);
+    send_handshake_ack();
 #endif
 
     last_epoch_ms = millis();
@@ -129,6 +148,7 @@ void ArisRuntime::send_handshake_ack() {
     );
 
 #if defined(ARDUINO)
+    Serial.print(F("\r\n"));
     Serial.println(transmit_buffer);
 #endif
 }

@@ -14,6 +14,8 @@ from backend.optimization.transformation_registry import TransformationCategory,
 
 class CandidateStatus(str, Enum):
     ELIGIBLE = "ELIGIBLE"
+    PROPOSED = "PROPOSED"
+    GATED = "GATED"
     BLOCKED_RESOURCE = "BLOCKED_RESOURCE"
     BLOCKED_HARDWARE = "BLOCKED_HARDWARE"
     BLOCKED_SAFETY = "BLOCKED_SAFETY"
@@ -21,6 +23,10 @@ class CandidateStatus(str, Enum):
     HIGH_UNCERTAINTY = "HIGH_UNCERTAINTY"
     READY_FOR_APPROVAL = "READY_FOR_APPROVAL"
     APPROVED = "APPROVED"
+    VALIDATED = "VALIDATED"
+    ACCEPTED = "ACCEPTED"
+    APPLIED = "APPLIED"
+    ACTIVE = "ACTIVE"
     REJECTED = "REJECTED"
     ROLLED_BACK = "ROLLED_BACK"
 
@@ -155,6 +161,9 @@ class HardwareAwareCandidate(BaseModel):
 
     # Rationale & Explainability
     rationale: str
+    hypothesis_text: Optional[str] = None
+    generator_source: str = "DETERMINISTIC_RULE_SYNTHESIS"  # "DETERMINISTIC_RULE_SYNTHESIS" or "AI_ASSISTED_SYNTHESIS"
+    predicted_metrics_summary: Dict[str, str] = Field(default_factory=dict)
     trade_offs_explained: Dict[str, str] = Field(default_factory=dict)
     hardware_consideration: str
 

@@ -32,6 +32,7 @@ import { LogViewer } from './components/Logs/LogViewer';
 import { ErrorBanner } from './components/common/ErrorBanner';
 import { SystemInfoModal } from './components/common/SystemInfoModal';
 import { StartupSplash } from './components/Splash/StartupSplash';
+import { apiGetFindings, apiScanSource } from './services/api';
 import type { FindingRecord, BoardProfile } from './types';
 
 const INITIAL_NOTIFICATIONS: NotificationItem[] = [
@@ -103,11 +104,12 @@ export const App: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  const handleNavigate = useCallback((tab: NavTab) => {
-    if (tab === 'about') {
+  const handleNavigate = useCallback((tab: NavTab | string) => {
+    const normalized = (tab === 'monitor' ? 'telemetry' : tab) as NavTab;
+    if (normalized === 'about') {
       setShowAboutModal(true);
     } else {
-      setActiveTab(tab);
+      setActiveTab(normalized);
     }
   }, []);
 
@@ -141,14 +143,16 @@ export const App: React.FC = () => {
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-app text-fg select-none relative font-sans">
+    <div className="flex h-screen w-screen overflow-hidden bg-[var(--bg-app)] text-[var(--text-primary)] select-none relative font-sans">
       {/* Startup Splash Screen */}
       {showSplash && (
         <StartupSplash
           backendOnline={aris.backendOnline}
+          backendState={aris.backendState}
           hardwareConnected={aris.hardwareConnected}
           selectedBoard={aris.selectedBoard}
           onComplete={handleSplashComplete}
+          onRetry={aris.restartBackend}
         />
       )}
 
@@ -193,7 +197,7 @@ export const App: React.FC = () => {
         )}
 
         {/* Viewport Center */}
-        <main className="flex-1 overflow-hidden relative bg-app">
+        <main className="flex-1 overflow-hidden relative bg-[var(--bg-app)]">
           {activeTab === 'dashboard' && (
             <OverviewDashboard
               health={aris.health}
@@ -270,10 +274,12 @@ export const App: React.FC = () => {
               onNavigate={(t: string) => handleNavigate(t as NavTab)}
               connectedPort={aris.connectionStatus?.port}
               hardwareConnected={aris.hardwareConnected}
+              onRunStarted={(run: any) => aris.setActiveRun(run)}
+              onFindingsUpdated={aris.setFindings}
             />
           )}
 
-          {activeTab === 'telemetry' && (
+          {(activeTab === 'telemetry' || (activeTab as string) === 'monitor') && (
             <TelemetryLab
               activeRun={aris.activeRun}
               wsConnected={aris.wsConnected}
@@ -334,6 +340,7 @@ export const App: React.FC = () => {
               onValidateExperiment={aris.runExperimentValidation}
               onRollbackExperiment={aris.rollbackExperiment}
               onRollbackOptimization={aris.rollbackOptimization}
+              onStopRun={handleStopRun}
             />
           )}
 
@@ -363,6 +370,27 @@ export const App: React.FC = () => {
               onGenerateCandidate={handleGenerateCandidate}
               onNavigate={(t: string) => handleNavigate(t as NavTab)}
               loading={Boolean(aris.loading.findings)}
+              onRunAnalysis={async () => {
+                if (aris.activeRun?.run_id) {
+                  try {
+                    const f = await apiGetFindings(aris.activeRun.run_id);
+                    if (f) aris.setFindings(f);
+                  } catch (_) {}
+                } else {
+                  const syncedFw = await aris.syncIDESketch();
+                  const src = aris.activeIDESketch?.source_code || syncedFw?.source_code || aris.activeFirmware?.source_code;
+                  try {
+                    const res = await apiScanSource(
+                      src,
+                      aris.activeIDESketch?.path,
+                      aris.selectedBoard?.board_id || 'arduino_uno'
+                    );
+                    if (res && res.findings) {
+                      aris.setFindings(res.findings);
+                    }
+                  } catch (_) {}
+                }
+              }}
             />
           )}
 
@@ -401,7 +429,7 @@ export const App: React.FC = () => {
         </main>
 
         {/* Global Engineering Status Strip */}
-        <footer className="h-6 bg-header border-t border-border px-4 flex items-center justify-between text-[11px] font-mono text-muted shrink-0 z-10">
+        <footer className="h-6 bg-[var(--bg-header)] border-t border-[var(--border-color)] px-4 flex items-center justify-between text-[11px] font-mono text-[var(--text-muted)] shrink-0 z-10">
           <div className="flex items-center gap-4">
             <span className="flex items-center gap-1.5" title={`ARIS Analytical Backend State: ${aris.backendState}`}>
               <span
@@ -416,20 +444,26 @@ export const App: React.FC = () => {
               API: {aris.backendState}
             </span>
             <span>
-              Target: {aris.deviceState === 'CONNECTED' && aris.selectedBoard
+              Target: {aris.selectedBoard
                 ? aris.selectedBoard.display_name
-                : aris.deviceState === 'SIMULATION' && aris.selectedBoard
-                ? `${aris.selectedBoard.display_name} (SIMULATION)`
+                : aris.hardwareConnected
+                ? 'Arduino Uno'
+                : aris.isDemo
+                ? 'Virtual ATmega328P'
                 : '—'}
             </span>
             <span>
-              Clock: {aris.selectedBoard
-                ? (aris.selectedBoard.clock_hz ? `${aris.selectedBoard.clock_hz / 1e6} MHz` : aris.selectedBoard.clock_mhz ? `${aris.selectedBoard.clock_mhz} MHz` : '—')
+              Clock: {aris.selectedBoard?.clock_hz
+                ? `${aris.selectedBoard.clock_hz / 1e6} MHz`
+                : aris.hardwareConnected
+                ? '16 MHz'
                 : '—'}
             </span>
             <span>
-              SRAM: {aris.selectedBoard
-                ? (aris.selectedBoard.sram_bytes ? `${aris.selectedBoard.sram_bytes / 1024} KB` : '—')
+              SRAM: {aris.selectedBoard?.sram_bytes
+                ? `${aris.selectedBoard.sram_bytes / 1024} KB`
+                : aris.hardwareConnected
+                ? '2 KB'
                 : '—'}
             </span>
             {aris.isDemo && (
@@ -442,7 +476,7 @@ export const App: React.FC = () => {
                 Run: {aris.activeRun.run_id} ({aris.activeRun.status})
               </span>
             )}
-            <span className="text-fg font-semibold">ARIS v3.0.0-PROFESSIONAL</span>
+            <span className="text-[var(--text-primary)] font-semibold">ARIS v3.0.0-PROFESSIONAL</span>
           </div>
         </footer>
       </div>

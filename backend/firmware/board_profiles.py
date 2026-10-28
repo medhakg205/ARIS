@@ -46,6 +46,7 @@ class BoardProfile:
     build_toolchain: str = "avr-gcc"               # Toolchain identifier
     supported: bool = True                         # Supported for automated ARIS build & analysis
     # Resolution metadata
+    program_flash_bytes: Optional[int] = None      # Usable sketch flash excluding bootloader (e.g. 32256 for Uno)
     profile_source: str = "EXACT_PROFILE"          # EXACT_PROFILE, TOOLCHAIN_DERIVED, RUNTIME_VERIFIED, PARTIALLY_RESOLVED, UNKNOWN
     confidence: str = "HIGH"                       # CONFIRMED, HIGH, MEDIUM, LOW, UNKNOWN, MISMATCH
     unavailable_properties: List[str] = field(default_factory=list)
@@ -55,6 +56,39 @@ class BoardProfile:
     @property
     def arch(self) -> Optional[str]:
         return self.architecture
+
+    @property
+    def max_program_bytes(self) -> Optional[int]:
+        """
+        Returns the true maximum program flash space available for user code,
+        accounting for bootloader reservation (e.g. 32,256 B for Uno Optiboot, 253,952 B for Mega).
+        Returns None if memory limits cannot be determined from verified platform metadata.
+        """
+        if self.program_flash_bytes:
+            return self.program_flash_bytes
+        if self.board_id == "arduino_uno":
+            return 32256
+        if self.board_id == "arduino_nano":
+            # Handle Nano bootloader variants explicitly
+            if self.fqbn:
+                if "cpu=atmega328" in self.fqbn and "old" not in self.fqbn:
+                    return 32256  # New Bootloader (Optiboot 512B)
+                elif "cpu=atmega168" in self.fqbn:
+                    return 14336  # ATmega168 Nano
+            # Conservative default for Nano is ATmegaBOOT (2048B) Old Bootloader
+            return 30720
+        if self.board_id == "arduino_mega":
+            return 253952
+        if self.board_id == "arduino_leonardo":
+            return 28672
+        if self.flash_bytes:
+            return self.flash_bytes
+        return None
+
+    @property
+    def max_sram_bytes(self) -> Optional[int]:
+        """Returns the maximum static SRAM available, or None if unknown."""
+        return self.sram_bytes
 
     def is_avr(self) -> bool:
         """Returns True if the board architecture is AVR8."""

@@ -62,6 +62,13 @@ class FirmwareRecord(BaseModel):
     elf_path: Optional[str] = None     # Absolute filesystem path to compiled ELF binary
     map_content: Optional[str] = None  # GCC map file text showing memory symbol layout
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    parent_firmware_id: Optional[str] = None # Lineage pointer to parent/baseline firmware
+    candidate_id: Optional[str] = None       # Optimization candidate ID that produced this version
+    source_hash: Optional[str] = None        # SHA-256 hash of source code
+    status: str = "ACTIVE"                   # "ACTIVE", "SUPERSEDED", "BASELINE", "CANDIDATE", "ROLLED_BACK"
+    applied: bool = False                    # True if written to local Arduino project disk
+    applied_at: Optional[str] = None         # Timestamp when source was applied
+    backup_path: Optional[str] = None        # Path to .aris/backups/ backup file
 
 
 class TelemetryRecord(BaseModel):
@@ -149,7 +156,22 @@ class OptimizationRecord(BaseModel):
     risk: str = "LOW"                  # Risk evaluation: "LOW", "MEDIUM", "HIGH"
     confidence: float = 0.89           # Confidence factor 0.0 to 1.0
     validation_required: bool = True   # Indicates whether closed-loop verification is mandated
-    status: str = "PROPOSED"           # "PROPOSED", "APPROVED", "BUILDING", "TESTING", "VALIDATED", "REJECTED", "ROLLED_BACK", "FAILED"
+    status: str = "PROPOSED"           # "PROPOSED", "APPROVED", "BUILDING", "TESTING", "VALIDATED", "REJECTED", "ROLLED_BACK", "FAILED", "ACCEPTED"
+    transformation_id: Optional[str] = None     # Canonical transformation identifier (e.g. "TR-GPIO-001")
+    parent_firmware_id: Optional[str] = None    # Firmware version this candidate derives from
+    parent_source_hash: Optional[str] = None    # SHA-256 hash before modification
+    candidate_source_hash: Optional[str] = None # SHA-256 hash after optimization
+    board_id: Optional[str] = None              # Target board identifier
+    mcu: Optional[str] = None                   # Microcontroller target
+    architecture: Optional[str] = None          # Core target architecture
+    fqbn: Optional[str] = None                  # Target FQBN
+    hypothesis: Optional[str] = None            # Performance hypothesis string
+    prediction: Optional[Dict[str, Any]] = None # Raw and calibrated predictions
+    applied: bool = False                       # True if candidate code was applied to user sketch on disk
+    applied_at: Optional[str] = None            # ISO-8601 timestamp of source application
+    backup_path: Optional[str] = None           # Path to backup file created prior to applying
+    generator_source: str = "DETERMINISTIC_RULE_SYNTHESIS" # "DETERMINISTIC_RULE_SYNTHESIS" or "AI_ASSISTED_SYNTHESIS"
+    trade_offs_explained: Dict[str, str] = Field(default_factory=dict) # Human-readable trade-off explanations
 
 
 class RunRecord(BaseModel):

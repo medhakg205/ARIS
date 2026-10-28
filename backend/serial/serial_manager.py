@@ -34,20 +34,32 @@ class SerialManager:
         self._read_thread: Optional[threading.Thread] = None
         self._stop_event = threading.Event()
         self._lock = threading.RLock()
+        self._deployment_in_progress: bool = False
+        self._deployment_port: Optional[str] = None
+        self._deployment_lock = threading.Lock()
 
     def set_active_run(self, run_id: Optional[str]) -> None:
         """Sets or updates the active run_id associated with incoming telemetry."""
         with self._lock:
             self.active_run_id = run_id
 
-    def connect(self, port: str, baud_rate: int = 115200, run_id: Optional[str] = None) -> Dict[str, Any]:
+    def connect(self, port: str, baud_rate: int = 115200, run_id: Optional[str] = None, force: bool = False) -> Dict[str, Any]:
         """
         Establishes a serial connection to the specified hardware COM/TTY port.
         Raises ArisException(ARIS_SERIAL_DISCONNECTED) on failure.
         """
+        if not force and self.is_deployment_active() and (not port or (self._deployment_port and self._deployment_port.upper() == port.upper())):
+            raise ArisException(
+                error_code="ARIS_SERIAL_BUSY",
+                message=f"Cannot connect to {port}: firmware deployment is actively in progress.",
+                details={"port": port},
+                recoverable=True,
+                status_code=409
+            )
+
         with self._lock:
-            if self.connected:
-                self.disconnect()
+            if self.connected or self._serial_handle:
+                self.release_serial(wait_ms=200)
 
             try:
                 import serial
@@ -103,31 +115,163 @@ class SerialManager:
                     status_code=400
                 )
 
-    def disconnect(self) -> Dict[str, Any]:
+    def is_serial_open(self, port: Optional[str] = None) -> bool:
         """
-        Closes the active serial connection safely.
+        Returns whether the serial port is currently open.
+        If port is specified, checks if the connection matches that specific port.
         """
         with self._lock:
+            if not self.connected and not self._serial_handle:
+                return False
+            if port and self.current_port and self.current_port.upper() != port.upper():
+                return False
+            if self._serial_handle:
+                try:
+                    return bool(self._serial_handle.is_open)
+                except Exception:
+                    return False
+            return bool(self.connected)
+
+    def release_serial(self, port: Optional[str] = None, wait_ms: int = 500) -> Dict[str, Any]:
+        """
+        Safely and idempotently releases any active serial port handle.
+        1. Signals background telemetry reader thread to stop.
+        2. Cancels pending I/O via cancel_read/cancel_write.
+        3. Closes serial handle completely and sets to None.
+        4. Joins the background reader thread to guarantee no lingering access.
+        5. Waits for Windows OS to release COM port device lock (wait_ms).
+        6. Verifies handle is closed.
+        Guarantees that avrdude / arduino-cli can open the COM port without 'Access is denied'.
+        """
+        with self._lock:
+            if port and self.current_port and self.current_port.upper() != port.upper():
+                if not self.connected and not self._serial_handle:
+                    return {
+                        "released": True,
+                        "port": port,
+                        "current_port": self.current_port,
+                        "status": "different_port_not_open"
+                    }
+
+            logger.info(f"Releasing serial handle for port {self.current_port or port or 'ALL'}.")
             self.connected = False
             self._stop_event.set()
 
+            # Cancel any pending read/write in background thread to unblock ReadFile immediately
             if self._serial_handle:
                 try:
-                    if self._serial_handle.is_open:
+                    if hasattr(self._serial_handle, "cancel_read"):
+                        self._serial_handle.cancel_read()
+                except Exception as e:
+                    logger.debug(f"cancel_read exception: {e}")
+
+                try:
+                    if hasattr(self._serial_handle, "cancel_write"):
+                        self._serial_handle.cancel_write()
+                except Exception as e:
+                    logger.debug(f"cancel_write exception: {e}")
+
+                try:
+                    if hasattr(self._serial_handle, "is_open") and self._serial_handle.is_open:
                         self._serial_handle.close()
                 except Exception as e:
                     logger.warning(f"Error closing serial handle: {e}")
                 finally:
                     self._serial_handle = None
 
-            previous_port = self.current_port
+            thread_to_join = None
+            if self._read_thread and self._read_thread.is_alive():
+                if threading.current_thread() != self._read_thread:
+                    thread_to_join = self._read_thread
+                self._read_thread = None
+
+            released_port = self.current_port
             self.current_port = None
 
-            logger.info(f"Disconnected serial port {previous_port}.")
-            return {
-                "connected": False,
-                "previous_port": previous_port
-            }
+        # Join reader thread OUTSIDE the lock to prevent deadlock with reader loop cleanup
+        if thread_to_join:
+            try:
+                thread_to_join.join(timeout=1.5)
+            except Exception as e:
+                logger.warning(f"Error joining serial reader thread: {e}")
+
+        # Give Windows OS kernel time to flush and release COM port device lock
+        if wait_ms > 0:
+            time.sleep(wait_ms / 1000.0)
+
+        # Verify handle is closed
+        is_open = self.is_serial_open(port)
+        if is_open:
+            logger.error(f"Serial port {port or released_port} reported still open after release!")
+        else:
+            logger.info(f"Serial port {port or released_port} successfully released and confirmed closed.")
+
+        return {
+            "released": not is_open,
+            "port": released_port or port,
+            "is_open": is_open
+        }
+
+    def is_deployment_active(self) -> bool:
+        """Returns True if a firmware deployment/flashing operation is actively in progress."""
+        with self._lock:
+            return bool(self._deployment_in_progress)
+
+    def begin_deployment(self, port: str) -> None:
+        """
+        Enters deployment mode:
+        1. Prevents concurrent deployments by acquiring deployment lock.
+        2. Releases active serial port handle and stops background reader.
+        3. Marks deployment active to block auto-detection and connection attempts.
+        """
+        acquired = self._deployment_lock.acquire(blocking=False)
+        if not acquired:
+            raise ArisException(
+                error_code="ARIS_CONCURRENT_DEPLOYMENT",
+                message=f"A firmware deployment is already in progress on port {self._deployment_port or 'target'}.",
+                details={"port": port, "active_deployment_port": self._deployment_port},
+                recoverable=False,
+                status_code=409
+            )
+        try:
+            with self._lock:
+                self._deployment_in_progress = True
+                self._deployment_port = port
+            # Completely release the port
+            self.release_serial(port=port, wait_ms=600)
+            logger.info(f"Deployment mode active for port {port}. Serial released and auto-detection locked.")
+        except Exception:
+            self.end_deployment(port)
+            raise
+
+    def end_deployment(self, port: Optional[str] = None) -> None:
+        """Exits deployment mode and unlocks port for normal detection/connection."""
+        with self._lock:
+            self._deployment_in_progress = False
+            self._deployment_port = None
+        if self._deployment_lock.locked():
+            try:
+                self._deployment_lock.release()
+            except RuntimeError:
+                pass
+        logger.info(f"Deployment mode exited for port {port}. Normal detection resumed.")
+
+    def acquire_serial(self, port: str, baud_rate: int = 115200, run_id: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Explicitly acquires serial port for telemetry streaming.
+        Alias / wrapper around connect() for symmetry with release_serial().
+        """
+        return self.connect(port=port, baud_rate=baud_rate, run_id=run_id)
+
+    def disconnect(self) -> Dict[str, Any]:
+        """
+        Closes the active serial connection safely.
+        """
+        res = self.release_serial(wait_ms=0)
+        return {
+            "connected": False,
+            "previous_port": res.get("port")
+        }
 
     def get_status(self) -> Dict[str, Any]:
         """Returns the current connection status and telemetry ingestion counts."""
@@ -145,10 +289,11 @@ class SerialManager:
                 "is_hardware": True if self.connected else False
             }
 
-    def perform_handshake(self, timeout_sec: float = 2.0) -> Dict[str, Any]:
+    def perform_handshake(self, timeout_sec: float = 5.0) -> Dict[str, Any]:
         """
-        Sends $ARIS_HELLO# to target hardware and awaits $ARIS_ACK confirmation.
-        Distinguishes real instrumented ARIS hardware from un-instrumented serial devices.
+        Actively queries the MCU target with $ARIS_HELLO# and waits for $ARIS_ACK response.
+        Retries periodically (every 350ms) to ensure handshake is received even if the MCU
+        is undergoing bootloader delay (Optiboot 1-1.5s), setup() execution, or baud rate settling.
         """
         if not self.connected or not self._serial_handle:
             return {
@@ -158,21 +303,38 @@ class SerialManager:
             }
 
         try:
-            self.handshake_data = None
+            # If a valid handshake was already captured (e.g. from boot announcement upon connect), return it
             with self._lock:
-                if self._serial_handle and self._serial_handle.is_open:
-                    # Write $ delimiter, brief micro-pause to ensure MCU serial FIFO edge, then payload
-                    self._serial_handle.write(b"$")
-                    self._serial_handle.flush()
-                    time.sleep(0.005)
-                    self._serial_handle.write(b"ARIS_HELLO#\n")
-                    self._serial_handle.flush()
+                if self.handshake_data and self.handshake_data.get("handshake_success"):
+                    return dict(self.handshake_data)
+                self.handshake_data = None
 
             start_t = time.time()
+            last_probe_t = 0.0
+            probe_interval = 0.35  # send $ARIS_HELLO# every 350ms
+
             while time.time() - start_t < timeout_sec:
-                if self.handshake_data:
-                    return self.handshake_data
-                time.sleep(0.05)
+                with self._lock:
+                    if self.handshake_data and self.handshake_data.get("handshake_success"):
+                        return dict(self.handshake_data)
+
+                    now = time.time()
+                    if now - last_probe_t >= probe_interval:
+                        if self._serial_handle and self._serial_handle.is_open:
+                            try:
+                                # Ensure newline boundary before and after to ensure clean framing in MCU UART buffer
+                                self._serial_handle.write(b"\r\n$ARIS_HELLO#\n")
+                                self._serial_handle.flush()
+                                last_probe_t = now
+                            except Exception as write_err:
+                                logger.debug(f"Handshake probe write error: {write_err}")
+
+                time.sleep(0.04)
+
+            # Final check under lock before timing out
+            with self._lock:
+                if self.handshake_data and self.handshake_data.get("handshake_success"):
+                    return dict(self.handshake_data)
 
             return {
                 "handshake_success": False,
@@ -188,30 +350,48 @@ class SerialManager:
             }
 
     def _parse_handshake_line(self, line: str) -> Optional[Dict[str, Any]]:
-        """Parses $ARIS_ACK,...# or $ARIS_BOOT,...# handshake frame."""
-        clean = line.strip()
-        if not ((clean.startswith("$ARIS_ACK,") or clean.startswith("$ARIS_BOOT,")) and clean.endswith("#")):
+        """Parses $ARIS_ACK,...# or $ARIS_BOOT,...# handshake frame from arbitrary serial stream line."""
+        if not line:
             return None
+
+        clean = line.strip()
+        idx = clean.find("$ARIS_ACK,")
+        frame_type = "ACK"
+        if idx == -1:
+            idx = clean.find("$ARIS_BOOT,")
+            frame_type = "BOOT"
+        if idx == -1:
+            return None
+
+        hash_idx = clean.find("#", idx)
+        if hash_idx == -1:
+            return None
+
+        frame = clean[idx : hash_idx + 1]
 
         # Format: $ARIS_ACK,runtime_version,protocol_version,board_id,mcu,arch,clock_hz,mode#
-        payload = clean[clean.index(",") + 1 : -1]
-        parts = [p.strip() for p in payload.split(",")]
-        if len(parts) < 6:
-            return None
+        try:
+            payload = frame[frame.index(",") + 1 : -1]
+            parts = [p.strip() for p in payload.split(",")]
+            if len(parts) < 6:
+                return None
 
-        data = {
-            "handshake_success": True,
-            "is_hardware": True,
-            "runtime_version": parts[0],
-            "protocol_version": parts[1],
-            "board_id": parts[2],
-            "mcu": parts[3],
-            "architecture": parts[4],
-            "clock_hz": int(parts[5]) if parts[5].isdigit() else 16000000,
-            "instrumentation_mode": parts[6] if len(parts) > 6 else "BALANCED",
-            "frame_type": "ACK" if clean.startswith("$ARIS_ACK") else "BOOT"
-        }
-        return data
+            data = {
+                "handshake_success": True,
+                "is_hardware": True,
+                "runtime_version": parts[0],
+                "protocol_version": parts[1],
+                "board_id": parts[2],
+                "mcu": parts[3],
+                "architecture": parts[4],
+                "clock_hz": int(parts[5]) if parts[5].isdigit() else 16000000,
+                "instrumentation_mode": parts[6] if len(parts) > 6 else "BALANCED",
+                "frame_type": frame_type
+            }
+            return data
+        except Exception as e:
+            logger.debug(f"Failed to parse handshake frame '{frame}': {e}")
+            return None
 
     def _reader_loop(self) -> None:
         """
@@ -232,13 +412,26 @@ class SerialManager:
 
                 line_str = raw_bytes.decode("utf-8", errors="ignore").strip()
                 if line_str:
-                    # Check for handshake packet
-                    if line_str.startswith("$ARIS_ACK,") or line_str.startswith("$ARIS_BOOT,"):
+                    # Check for handshake packet anywhere in the line
+                    if "$ARIS_ACK," in line_str or "$ARIS_BOOT," in line_str:
                         hs = self._parse_handshake_line(line_str)
                         if hs:
                             with self._lock:
                                 self.handshake_data = hs
                             logger.info(f"Received ARIS runtime handshake from {self.current_port}: {hs}")
+
+                            # Extract any non-handshake text that may have arrived on the same line
+                            # so user sketch prints (or telemetry JSON) are preserved
+                            start_tok = "$ARIS_ACK," if "$ARIS_ACK," in line_str else "$ARIS_BOOT,"
+                            s_idx = line_str.find(start_tok)
+                            e_idx = line_str.find("#", s_idx)
+                            if e_idx != -1:
+                                prefix = line_str[:s_idx].strip()
+                                suffix = line_str[e_idx + 1:].strip()
+                                if prefix:
+                                    self.ingestor.ingest_raw_line(prefix, active_run_id=self.active_run_id)
+                                if suffix:
+                                    self.ingestor.ingest_raw_line(suffix, active_run_id=self.active_run_id)
                             continue
 
                     # Ingest line into the telemetry ingestion pipeline

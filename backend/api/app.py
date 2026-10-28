@@ -119,4 +119,4 @@ async def websocket_telemetry_all(websocket: WebSocket):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("backend.api.app:app", host="127.0.0.1", port=8765, reload=False)
+    uvicorn.run(app, host="127.0.0.1", port=8765, reload=False)

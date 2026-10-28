@@ -167,12 +167,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           />
           <InfoCard
             label="Clock Speed"
-            value={(hardwareConnected || isSimulatedActive) && selectedBoard ? `${selectedBoard.clock_hz / 1_000_000} MHz` : '—'}
+            value={(hardwareConnected || isSimulatedActive) && selectedBoard?.clock_hz ? `${selectedBoard.clock_hz / 1_000_000} MHz` : '—'}
             icon={<Clock className="w-3.5 h-3.5 text-slate-400" />}
           />
           <InfoCard
             label="Memory Footprint"
-            value={(hardwareConnected || isSimulatedActive) && selectedBoard ? `${selectedBoard.sram_bytes / 1024}K / ${selectedBoard.flash_bytes / 1024}K Flash` : '—'}
+            value={(hardwareConnected || isSimulatedActive) && selectedBoard?.sram_bytes && selectedBoard?.flash_bytes ? `${selectedBoard.sram_bytes / 1024}K / ${selectedBoard.flash_bytes / 1024}K Flash` : '—'}
             icon={<MemoryStick className="w-3.5 h-3.5 text-slate-400" />}
           />
         </div>
@@ -232,12 +232,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </span>
           </h3>
           <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-            <SpecRow label="Flash Memory" value={hardwareConnected && selectedBoard ? `${selectedBoard.flash_bytes / 1024} KB` : '—'} />
-            <SpecRow label="Static RAM" value={hardwareConnected && selectedBoard ? `${selectedBoard.sram_bytes / 1024} KB` : '—'} />
-            <SpecRow label="EEPROM" value={hardwareConnected && selectedBoard ? `${selectedBoard.eeprom_bytes / 1024} KB` : '—'} />
-            <SpecRow label="Digital GPIO" value={hardwareConnected && selectedBoard ? `${selectedBoard.gpio_count} pins` : '—'} />
-            <SpecRow label="Analog ADC" value={hardwareConnected && selectedBoard ? `${selectedBoard.adc_channels} ch` : '—'} />
-            <SpecRow label="Hardware UART" value={hardwareConnected && selectedBoard ? `${selectedBoard.uart_count} port` : '—'} />
+            <SpecRow label="Flash Memory" value={hardwareConnected && selectedBoard?.flash_bytes ? `${selectedBoard.flash_bytes / 1024} KB` : '—'} />
+            <SpecRow label="Static RAM" value={hardwareConnected && selectedBoard?.sram_bytes ? `${selectedBoard.sram_bytes / 1024} KB` : '—'} />
+            <SpecRow label="EEPROM" value={hardwareConnected && selectedBoard?.eeprom_bytes ? `${selectedBoard.eeprom_bytes / 1024} KB` : '—'} />
+            <SpecRow label="Digital GPIO" value={hardwareConnected && selectedBoard?.gpio_count != null ? `${selectedBoard.gpio_count} pins` : '—'} />
+            <SpecRow label="Analog ADC" value={hardwareConnected && selectedBoard?.adc_channels != null ? `${selectedBoard.adc_channels} ch` : '—'} />
+            <SpecRow label="Hardware UART" value={hardwareConnected && selectedBoard?.uart_count != null ? `${selectedBoard.uart_count} port` : '—'} />
           </div>
         </div>
 

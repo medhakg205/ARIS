@@ -151,7 +151,7 @@ export const TelemetryDashboard: React.FC<TelemetryDashboardProps> = ({
     sram_used: frame.used_sram_bytes + frame.stack_high_watermark_bytes
   }));
 
-  const sramTotal = boardDetail.sram_bytes;
+  const sramTotal = boardDetail.sram_bytes || 2048;
   const sramUsed = telemetry.used_sram_bytes + telemetry.stack_high_watermark_bytes;
   const sramPercent = Math.min(100, Math.round((sramUsed / sramTotal) * 100));
   const isStalled = telemetry.cpu_utilization_pct > 65;

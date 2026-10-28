@@ -168,8 +168,17 @@ def stop_run(run_id: str) -> Dict[str, Any]:
         )
 
     simulator = get_simulator()
-    if simulator.running and simulator.run_id == run_id:
+    if simulator.running and (simulator.run_id == run_id or not simulator.run_id):
         simulator.stop()
+
+    serial_mgr = get_serial_mgr()
+    if serial_mgr:
+        if getattr(serial_mgr, "active_run_id", None) == run_id or serial_mgr.connected:
+            serial_mgr.set_active_run(None)
+            serial_mgr.release_serial(wait_ms=100)
+
+    if run.status == "COMPLETED":
+        return run.model_dump()
 
     run.status = "COMPLETED"
     run.end_time = datetime.now(timezone.utc).isoformat()

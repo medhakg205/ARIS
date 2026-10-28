@@ -33,7 +33,7 @@ export const MemoryVisualizer: React.FC<MemoryVisualizerProps> = ({
               Harvard Memory Layout & Disassembly Inspector ({boardDetail.name})
             </h2>
             <p className="text-xs text-slate-400 font-mono mt-0.5">
-              Flash ROM ({boardDetail.flash_bytes/1024}KB) vs Internal SRAM ({boardDetail.sram_bytes/1024}KB) Section Allocation
+              Flash ROM ({(boardDetail.flash_bytes || 32768)/1024}KB) vs Internal SRAM ({(boardDetail.sram_bytes || 2048)/1024}KB) Section Allocation
             </p>
           </div>
         </div>
@@ -110,14 +110,14 @@ export const MemoryVisualizer: React.FC<MemoryVisualizerProps> = ({
           <div className="w-full bg-[#0a0d14] h-8 rounded-xl overflow-hidden flex border border-slate-800 p-1 gap-1">
             <div 
               className="bg-blue-500 rounded h-full flex items-center justify-center text-[10px] font-mono font-bold text-white"
-              style={{ width: `${Math.max(12, (memoryMap.data_section_bytes / boardDetail.sram_bytes) * 100)}%` }}
+              style={{ width: `${Math.max(12, (memoryMap.data_section_bytes / (boardDetail.sram_bytes || 2048)) * 100)}%` }}
               title=".data"
             >
               .data
             </div>
             <div 
               className="bg-teal-500 rounded h-full flex items-center justify-center text-[10px] font-mono font-bold text-black"
-              style={{ width: `${Math.max(12, (memoryMap.bss_section_bytes / boardDetail.sram_bytes) * 100)}%` }}
+              style={{ width: `${Math.max(12, (memoryMap.bss_section_bytes / (boardDetail.sram_bytes || 2048)) * 100)}%` }}
               title=".bss"
             >
               .bss
@@ -129,7 +129,7 @@ export const MemoryVisualizer: React.FC<MemoryVisualizerProps> = ({
             </div>
             <div 
               className="bg-purple-500 rounded h-full flex items-center justify-center text-[10px] font-mono font-bold text-white"
-              style={{ width: `${Math.max(15, (memoryMap.estimated_heap_stack_bytes / boardDetail.sram_bytes) * 100)}%` }}
+              style={{ width: `${Math.max(15, (memoryMap.estimated_heap_stack_bytes / (boardDetail.sram_bytes || 2048)) * 100)}%` }}
               title="Stack (SP)"
             >
               Stack

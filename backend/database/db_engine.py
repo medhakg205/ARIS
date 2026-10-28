@@ -420,6 +420,44 @@ class DatabaseEngine:
                     if col_name not in existing_cols:
                         cursor.execute(f"ALTER TABLE boards ADD COLUMN {col_name} {col_def};")
 
+                # Migration / column checks for firmwares
+                cursor.execute("PRAGMA table_info(firmwares);")
+                existing_fw_cols = {col["name"] for col in cursor.fetchall()}
+                new_fw_columns = [
+                    ("parent_firmware_id", "TEXT"),
+                    ("candidate_id", "TEXT"),
+                    ("source_hash", "TEXT"),
+                    ("status", "TEXT DEFAULT 'ACTIVE'"),
+                    ("applied", "INTEGER DEFAULT 0"),
+                    ("applied_at", "TEXT"),
+                    ("backup_path", "TEXT")
+                ]
+                for col_name, col_def in new_fw_columns:
+                    if col_name not in existing_fw_cols:
+                        cursor.execute(f"ALTER TABLE firmwares ADD COLUMN {col_name} {col_def};")
+
+                # Migration / column checks for optimizations
+                cursor.execute("PRAGMA table_info(optimizations);")
+                existing_opt_cols = {col["name"] for col in cursor.fetchall()}
+                new_opt_columns = [
+                    ("transformation_id", "TEXT"),
+                    ("parent_firmware_id", "TEXT"),
+                    ("parent_source_hash", "TEXT"),
+                    ("candidate_source_hash", "TEXT"),
+                    ("board_id", "TEXT"),
+                    ("mcu", "TEXT"),
+                    ("architecture", "TEXT"),
+                    ("fqbn", "TEXT"),
+                    ("hypothesis", "TEXT"),
+                    ("prediction", "TEXT"),
+                    ("applied", "INTEGER DEFAULT 0"),
+                    ("applied_at", "TEXT"),
+                    ("backup_path", "TEXT")
+                ]
+                for col_name, col_def in new_opt_columns:
+                    if col_name not in existing_opt_cols:
+                        cursor.execute(f"ALTER TABLE optimizations ADD COLUMN {col_name} {col_def};")
+
                 conn.commit()
             finally:
                 self._close_connection(conn)
@@ -557,8 +595,9 @@ class DatabaseEngine:
             try:
                 conn.execute("""
                 INSERT OR REPLACE INTO firmwares (
-                    firmware_id, name, source_code, hex_content, elf_path, map_content, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?);
+                    firmware_id, name, source_code, hex_content, elf_path, map_content, created_at,
+                    parent_firmware_id, candidate_id, source_hash, status, applied, applied_at, backup_path
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
                 """, (
                     fw.firmware_id,
                     fw.name,
@@ -566,11 +605,37 @@ class DatabaseEngine:
                     fw.hex_content,
                     fw.elf_path,
                     fw.map_content,
-                    fw.created_at
+                    fw.created_at,
+                    fw.parent_firmware_id,
+                    fw.candidate_id,
+                    fw.source_hash,
+                    fw.status,
+                    1 if fw.applied else 0,
+                    fw.applied_at,
+                    fw.backup_path
                 ))
                 conn.commit()
             finally:
                 self._close_connection(conn)
+
+    def _row_to_firmware_record(self, row: sqlite3.Row) -> FirmwareRecord:
+        row_keys = row.keys()
+        return FirmwareRecord(
+            firmware_id=row["firmware_id"],
+            name=row["name"],
+            source_code=row["source_code"],
+            hex_content=row["hex_content"],
+            elf_path=row["elf_path"],
+            map_content=row["map_content"],
+            created_at=row["created_at"],
+            parent_firmware_id=row["parent_firmware_id"] if "parent_firmware_id" in row_keys else None,
+            candidate_id=row["candidate_id"] if "candidate_id" in row_keys else None,
+            source_hash=row["source_hash"] if "source_hash" in row_keys else None,
+            status=row["status"] if "status" in row_keys and row["status"] else "ACTIVE",
+            applied=bool(row["applied"]) if "applied" in row_keys and row["applied"] is not None else False,
+            applied_at=row["applied_at"] if "applied_at" in row_keys else None,
+            backup_path=row["backup_path"] if "backup_path" in row_keys else None
+        )
 
     def get_firmware(self, firmware_id: str) -> Optional[FirmwareRecord]:
         """Retrieves a firmware record by ID."""
@@ -579,15 +644,7 @@ class DatabaseEngine:
             row = conn.execute("SELECT * FROM firmwares WHERE firmware_id = ?;", (firmware_id,)).fetchone()
             if not row:
                 return None
-            return FirmwareRecord(
-                firmware_id=row["firmware_id"],
-                name=row["name"],
-                source_code=row["source_code"],
-                hex_content=row["hex_content"],
-                elf_path=row["elf_path"],
-                map_content=row["map_content"],
-                created_at=row["created_at"]
-            )
+            return self._row_to_firmware_record(row)
         finally:
             self._close_connection(conn)
 
@@ -596,18 +653,7 @@ class DatabaseEngine:
         conn = self._get_connection()
         try:
             rows = conn.execute("SELECT * FROM firmwares ORDER BY created_at DESC;").fetchall()
-            return [
-                FirmwareRecord(
-                    firmware_id=row["firmware_id"],
-                    name=row["name"],
-                    source_code=row["source_code"],
-                    hex_content=row["hex_content"],
-                    elf_path=row["elf_path"],
-                    map_content=row["map_content"],
-                    created_at=row["created_at"]
-                )
-                for row in rows
-            ]
+            return [self._row_to_firmware_record(row) for row in rows]
         finally:
             self._close_connection(conn)
 
@@ -915,8 +961,11 @@ class DatabaseEngine:
                     optimization_id, finding_id, run_id, title, problem,
                     source_location, before_code, after_code, reason,
                     hardware_consideration, expected_effect, risk, confidence,
-                    validation_required, status
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    validation_required, status,
+                    transformation_id, parent_firmware_id, parent_source_hash,
+                    candidate_source_hash, board_id, mcu, architecture, fqbn,
+                    hypothesis, prediction, applied, applied_at, backup_path
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(optimization_id) DO UPDATE SET
                     finding_id=excluded.finding_id,
                     run_id=excluded.run_id,
@@ -931,7 +980,20 @@ class DatabaseEngine:
                     risk=excluded.risk,
                     confidence=excluded.confidence,
                     validation_required=excluded.validation_required,
-                    status=excluded.status;
+                    status=excluded.status,
+                    transformation_id=excluded.transformation_id,
+                    parent_firmware_id=excluded.parent_firmware_id,
+                    parent_source_hash=excluded.parent_source_hash,
+                    candidate_source_hash=excluded.candidate_source_hash,
+                    board_id=excluded.board_id,
+                    mcu=excluded.mcu,
+                    architecture=excluded.architecture,
+                    fqbn=excluded.fqbn,
+                    hypothesis=excluded.hypothesis,
+                    prediction=excluded.prediction,
+                    applied=excluded.applied,
+                    applied_at=excluded.applied_at,
+                    backup_path=excluded.backup_path;
                 """, (
                     opt.optimization_id,
                     opt.finding_id,
@@ -947,11 +1009,65 @@ class DatabaseEngine:
                     opt.risk,
                     opt.confidence,
                     1 if opt.validation_required else 0,
-                    opt.status
+                    opt.status,
+                    opt.transformation_id,
+                    opt.parent_firmware_id,
+                    opt.parent_source_hash,
+                    opt.candidate_source_hash,
+                    opt.board_id,
+                    opt.mcu,
+                    opt.architecture,
+                    opt.fqbn,
+                    opt.hypothesis,
+                    json.dumps(opt.prediction) if opt.prediction is not None else None,
+                    1 if opt.applied else 0,
+                    opt.applied_at,
+                    opt.backup_path
                 ))
                 conn.commit()
             finally:
                 self._close_connection(conn)
+
+    def _row_to_optimization_record(self, row: sqlite3.Row) -> OptimizationRecord:
+        row_keys = row.keys()
+        pred = None
+        if "prediction" in row_keys and row["prediction"]:
+            try:
+                pred = json.loads(row["prediction"])
+            except Exception:
+                pred = None
+        return OptimizationRecord(
+            optimization_id=row["optimization_id"],
+            finding_id=row["finding_id"],
+            run_id=row["run_id"],
+            title=row["title"],
+            problem=row["problem"],
+            source_location=json.loads(row["source_location"]),
+            before_code=row["before_code"],
+            after_code=row["after_code"],
+            reason=row["reason"],
+            hardware_consideration=row["hardware_consideration"],
+            expected_effect=json.loads(row["expected_effect"]),
+            risk=row["risk"],
+            confidence=row["confidence"],
+            validation_required=bool(row["validation_required"]),
+            status=row["status"],
+            transformation_id=row["transformation_id"] if "transformation_id" in row_keys else None,
+            parent_firmware_id=row["parent_firmware_id"] if "parent_firmware_id" in row_keys else None,
+            parent_source_hash=row["parent_source_hash"] if "parent_source_hash" in row_keys else None,
+            candidate_source_hash=row["candidate_source_hash"] if "candidate_source_hash" in row_keys else None,
+            board_id=row["board_id"] if "board_id" in row_keys else None,
+            mcu=row["mcu"] if "mcu" in row_keys else None,
+            architecture=row["architecture"] if "architecture" in row_keys else None,
+            fqbn=row["fqbn"] if "fqbn" in row_keys else None,
+            hypothesis=row["hypothesis"] if "hypothesis" in row_keys else None,
+            prediction=pred,
+            applied=bool(row["applied"]) if "applied" in row_keys and row["applied"] is not None else False,
+            applied_at=row["applied_at"] if "applied_at" in row_keys else None,
+            backup_path=row["backup_path"] if "backup_path" in row_keys else None,
+            generator_source=row["generator_source"] if "generator_source" in row_keys and row["generator_source"] else "DETERMINISTIC_RULE_SYNTHESIS",
+            trade_offs_explained=json.loads(row["trade_offs_explained"]) if ("trade_offs_explained" in row_keys and row["trade_offs_explained"]) else {}
+        )
 
     def get_optimization(self, optimization_id: str) -> Optional[OptimizationRecord]:
         """Retrieves an optimization candidate by ID."""
@@ -960,23 +1076,7 @@ class DatabaseEngine:
             row = conn.execute("SELECT * FROM optimizations WHERE optimization_id = ?;", (optimization_id,)).fetchone()
             if not row:
                 return None
-            return OptimizationRecord(
-                optimization_id=row["optimization_id"],
-                finding_id=row["finding_id"],
-                run_id=row["run_id"],
-                title=row["title"],
-                problem=row["problem"],
-                source_location=json.loads(row["source_location"]),
-                before_code=row["before_code"],
-                after_code=row["after_code"],
-                reason=row["reason"],
-                hardware_consideration=row["hardware_consideration"],
-                expected_effect=json.loads(row["expected_effect"]),
-                risk=row["risk"],
-                confidence=row["confidence"],
-                validation_required=bool(row["validation_required"]),
-                status=row["status"]
-            )
+            return self._row_to_optimization_record(row)
         finally:
             self._close_connection(conn)
 
@@ -985,26 +1085,16 @@ class DatabaseEngine:
         conn = self._get_connection()
         try:
             rows = conn.execute("SELECT * FROM optimizations WHERE run_id = ?;", (run_id,)).fetchall()
-            return [
-                OptimizationRecord(
-                    optimization_id=row["optimization_id"],
-                    finding_id=row["finding_id"],
-                    run_id=row["run_id"],
-                    title=row["title"],
-                    problem=row["problem"],
-                    source_location=json.loads(row["source_location"]),
-                    before_code=row["before_code"],
-                    after_code=row["after_code"],
-                    reason=row["reason"],
-                    hardware_consideration=row["hardware_consideration"],
-                    expected_effect=json.loads(row["expected_effect"]),
-                    risk=row["risk"],
-                    confidence=row["confidence"],
-                    validation_required=bool(row["validation_required"]),
-                    status=row["status"]
-                )
-                for row in rows
-            ]
+            return [self._row_to_optimization_record(row) for row in rows]
+        finally:
+            self._close_connection(conn)
+
+    def list_optimizations(self) -> List[OptimizationRecord]:
+        """Lists all stored optimization candidates."""
+        conn = self._get_connection()
+        try:
+            rows = conn.execute("SELECT * FROM optimizations ORDER BY rowid DESC;").fetchall()
+            return [self._row_to_optimization_record(row) for row in rows]
         finally:
             self._close_connection(conn)
 
